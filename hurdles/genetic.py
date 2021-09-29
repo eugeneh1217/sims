@@ -1,58 +1,64 @@
+import typing
 import numpy as np
 
 class Node:
-    def __init__(self, parent):
+    def __init__(self, parent: Node, children: list[Node]):
         self.parent = parent
+        self.children = children
 
     def evaluate(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
-class BinaryFunctional(Node):
-    def __init__(self, parent, child1, child2):
-        super().__init__(parent)
-        self.children = [child1, child2]
-        self.children_values = list()
+class Root(Node):
+    CHILD_COUNT = 1
+    def __init__(self, children: list[Node]):
+        super().__init__(None, children)
 
-    def operate(self):
-        raise NotImplementedError
+    def evaluate(self):
+        return self.children[0].evaluate()
+
+class Leaf(Node):
+    def __init__(self, parent: Node, value: float):
+        super().__init__(parent, None)
+        self.value = value
+
+    def evaluate(self):
+        return self.value
+
+class FunctionalNode(Node):
+    def __init__(self, parent: Node, children: list[Node]):
+        super().__init__(parent, children)
+        self._children_values = list()
+
+    def function(self):
+        raise NotImplementedError()
 
     def evaluate(self):
         self.children_values = np.array([child.evaluate() for child in self.children])
-        return self.operate()
+        return self.function()
+
+class BinaryFunctional(FunctionalNode):
+    CHILD_COUNT = 2
 
 class Addition(BinaryFunctional):
-    def __init__(self, parent, children):
-        super().__init__(parent, children)
-
-    def operate(self):
+    def function(self):
         return self.children_values.sum()
 
 class Subtraction(BinaryFunctional):
-    def __init__(self, parent, children):
-        super().__init__(parent, children)
-
-    def operate(self):
+    def function(self):
         return self.children_values[1] - self.children_values[0]
 
 class Multiplication(BinaryFunctional):
-    def __init__(self, parent, children):
-        super().__init__(parent, children)
-
-    def operate(self):
+    def function(self):
         return self.children_values[1] * self.children_values[0]
 
 class Division(BinaryFunctional):
-    def __init__(self, parent, children):
-        super().__init__(parent, children)
-
-    def operate(self):
+    def function(self):
         return self.children_values[1] / self.children_values[0]
 
-class Numerical(Node):
-    def __init__(self, parent, value):
-        super().__init__(parent, list(), children_values=None)
-        self.value = value
+class MonoFunctional(FunctionalNode):
+    CHILD_COUNT = 1
 
-    def operate(self):
-        return self.value
-
+class LnFunctional(MonoFunctional):
+    def function(self):
+        return np.log(self.children[0])
