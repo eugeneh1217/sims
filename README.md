@@ -29,3 +29,8 @@ The map will be moving at a pre-set speed.
         * Add random gaussian noise to existing values
         * Grow by introducing a random function node (and required children value nodes)
 
+## TODO:
+* Create grammar structure
+* Implement evolution operations
+* Implement binary representations (probably starting from node class)
+
