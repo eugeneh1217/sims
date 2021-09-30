@@ -4,28 +4,18 @@ import numpy as np
 import math
 
 class Node:
-    def _left(self):
+    def _get_valid_children_types(self):
         raise NotImplementedError()
 
-    def _right(self):
-        raise NotImplementedError()
-
-    def evaluate(self):
-        raise NotImplementedError()
-
-    def _validate_child(self, child: Node):
-        if not any([isinstance(child, child_type) for child_type in self.VALID_CHILD_TYPES]):
+    @classmethod
+    def _validate_child(cls, child: Node):
+        if not any([isinstance(child, child_type) for child_type in cls._get_valid_children_types()]):
             raise ValueError()
 
-class Leaf(Node):
-    def __init__(self, value: float):
-        self.value = value
-
     def evaluate(self):
-        return self.value
+        raise NotImplementedError()
 
 class Root(Node):
-    VALID_CHILD_TYPES = (Node, )
     def __init__(self, left: Node):
         self.left = left
 
@@ -38,21 +28,46 @@ class Root(Node):
         self._validate_child(child)
         self._left = child
 
+    @classmethod
+    def _get_valid_children_types(cls):
+        return (Node, )
+
     def evaluate(self):
         return self.left.evaluate()
 
+class Leaf(Node):
+    def __init__(self, value: float):
+        self.value = value
+
+    def evaluate(self):
+        return self.value
+
 class Functional(Node):
     def __init__(self, left: Node, right: Node):
-        self._left = left
-        self._right = right
+        self.left = left
+        self.right = right
 
     @property
     def left(self):
         return self._left
 
+    @left.setter
+    def left(self, child: Node):
+        self._validate_child(child)
+        self._left = child
+
     @property
     def right(self):
         return self._right
+
+    @right.setter
+    def right(self, child: Node):
+        self._validate_child(child)
+        self._right = child
+
+    @classmethod
+    def _get_valid_children_types(cls):
+        return (Functional, Leaf)
 
     def _function(self, a, b):
         raise NotImplementedError()
