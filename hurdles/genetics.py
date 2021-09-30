@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 import numpy as np
 import math
@@ -12,6 +13,10 @@ class Node:
     def evaluate(self):
         raise NotImplementedError()
 
+    def _validate_child(self, child: Node):
+        if not any([isinstance(child, child_type) for child_type in self.VALID_CHILD_TYPES]):
+            raise ValueError()
+
 class Leaf(Node):
     def __init__(self, value: float):
         self.value = value
@@ -19,48 +24,62 @@ class Leaf(Node):
     def evaluate(self):
         return self.value
 
-class SingleChild(Node):
+class Root(Node):
+    VALID_CHILD_TYPES = (Node, )
     def __init__(self, left: Node):
         self.left = left
 
-    def _left(self):
-        return self.left.evaluate()
+    @property
+    def left(self):
+        return self._left
 
-class Root(SingleChild):
+    @left.setter
+    def left(self, child: Node):
+        self._validate_child(child)
+        self._left = child
+
     def evaluate(self):
-        return self._left()
+        return self.left.evaluate()
 
 class Functional(Node):
     def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
+        self._left = left
+        self._right = right
 
-    def _left(self):
-        return self.left.evaluate()
+    @property
+    def left(self):
+        return self._left
 
-    def _right(self):
-        return self.right.evaluate()
+    @property
+    def right(self):
+        return self._right
+
+    def _function(self, a, b):
+        raise NotImplementedError()
+
+    def evaluate(self):
+        return self._function(self.left.evaluate(), self.right.evaluate())
 
 class Add(Functional):
-    def evaluate(self):
-        return self._left() + self._right()
+    def _function(self, a, b):
+        return a + b
 
 class Subtract(Functional):
-    def evaluate(self):
-        return self._left() - self._right()
+    def _function(self, a, b):
+        return a - b
 
 class Multiply(Functional):
-    def evaluate(self):
-        return self._left() * self._right()
+    def _function(self, a, b):
+        return a * b
 
 class Divide(Functional):
-    def evaluate(self):
-        return self._left() / self._right()
+    def _function(self, a, b):
+        return a / b
 
 class Exponentiate(Functional):
-    def evaluate(self):
-        return self._left() ** self._right()
+    def _function(self, a, b):
+        return a ** b
 
 class Log(Functional):
-    def evaluate(self):
-        return math.log(self._left(), self._right())
+    def _function(self, a, b):
+        return math.log(a, b)
