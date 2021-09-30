@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import math
 
 from hurdles import genetics
 
@@ -12,7 +13,8 @@ class TestGenetic(unittest.TestCase):
                     genetics.Leaf(5),
                     genetics.Divide(
                         genetics.Leaf(7),
-                        genetics.Ln(
+                        genetics.Log(
+                            genetics.Leaf(2),
                             genetics.Leaf(9)
                         )
                     )
@@ -24,7 +26,8 @@ class TestGenetic(unittest.TestCase):
                     ),
                     genetics.Multiply(
                         genetics.Leaf(0.8),
-                        genetics.Ln(
+                        genetics.Log(
+                            genetics.Leaf(8),
                             genetics.Leaf(6)
                         )
                     )
@@ -33,7 +36,7 @@ class TestGenetic(unittest.TestCase):
         )
 
     def test_eval(self):
-        self.assertEqual((5 * 7 / np.log(9)) + (16 ** .5 - .8 * np.log(6)), self.sample_tree.evaluate())
+        self.assertAlmostEqual((5 * 7 / math.log(2, 9)) + (16 ** .5 - .8 * math.log(8, 6)), self.sample_tree.evaluate())
 
 if __name__ == '__main__':
     unittest.main()

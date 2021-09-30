@@ -1,5 +1,6 @@
 import typing
 import numpy as np
+import math
 
 class Node:
     def _left(self):
@@ -29,7 +30,7 @@ class Root(SingleChild):
     def evaluate(self):
         return self._left()
 
-class BinaryFunctional(Node):
+class Functional(Node):
     def __init__(self, left: Node, right: Node):
         self.left = left
         self.right = right
@@ -40,26 +41,26 @@ class BinaryFunctional(Node):
     def _right(self):
         return self.right.evaluate()
 
-class Add(BinaryFunctional):
+class Add(Functional):
     def evaluate(self):
         return self._left() + self._right()
 
-class Subtract(BinaryFunctional):
+class Subtract(Functional):
     def evaluate(self):
         return self._left() - self._right()
 
-class Multiply(BinaryFunctional):
+class Multiply(Functional):
     def evaluate(self):
         return self._left() * self._right()
 
-class Divide(BinaryFunctional):
+class Divide(Functional):
     def evaluate(self):
         return self._left() / self._right()
 
-class Exponentiate(BinaryFunctional):
+class Exponentiate(Functional):
     def evaluate(self):
         return self._left() ** self._right()
 
-class Ln(SingleChild):
+class Log(Functional):
     def evaluate(self):
-        return np.log(self._left())
+        return math.log(self._left(), self._right())
