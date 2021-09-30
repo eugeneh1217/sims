@@ -9,8 +9,10 @@ class Node:
 
     @classmethod
     def _validate_child(cls, child: Node):
-        if not any([isinstance(child, child_type) for child_type in cls._get_valid_children_types()]):
-            raise ValueError()
+        if not any([isinstance(child, child_type)
+                    for child_type in cls._get_valid_children_types()]):
+            raise ValueError(
+                f'"{type(child)}" child invalid for "{type(cls)}" parent')
 
     def evaluate(self):
         raise NotImplementedError()
