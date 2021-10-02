@@ -9,8 +9,7 @@ class GeneticSettings:
 class HurdleSettings:
     REPLAY_FPS = 20
     LIVE_FPS = 10
-    MIN_MAPSIZE = (500, 500)
-    FLOOR_HEIGHT = 100
+    FLOOR_HEIGHT = 1/5
     MAP_SPEED = 10
-    AGENT_SPAWN = np.array([200, FLOOR_HEIGHT + 1])
+    # AGENT_SPAWN = np.array([200, FLOOR_HEIGHT + 1])
     GRAVITY = np.array([0, -10])

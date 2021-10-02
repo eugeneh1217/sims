@@ -1,8 +1,10 @@
 from __future__ import annotations
+import msvcrt
 import numpy as np
 import os
 import shutil
 import time
+import threading
 import weakref
 
 from hurdles.settings import HurdleSettings
@@ -162,40 +164,97 @@ class Environment:
         pass
 
 class Cmd:
-    @classmethod
+    """Command Line GUI
+        Everything is scaled by height
+    """
     @property
-    def size(cls):
+    def size(self):
         return tuple(os.get_terminal_size())
 
-    @classmethod
-    def clear(cls):
+    def clear(self):
         os.system('cls' if os.name in ('nt', 'dos') else 'clear')
 
-    @classmethod
-    def convert(cls, int_array: np.ndarray):
+    def convert(self, int_array: np.ndarray):
         converted = np.array(int_array, dtype=object)
         converted[converted == 0] = ' '
-        converted[converted == 1] = '-'
+        converted[converted == 1] = '_'
         converted[converted == 2] = '|'
         return converted
 
-    @classmethod
-    def draw_frame(cls, frame: np.ndarray):
-        cls.clear()
-        print_frame = '\n'.join([''.join(row) for row in frame])
-        print(print_frame)
+    def draw(self, frame: np.ndarray):
+        self.clear()
+        print('\n'.join([
+            ''.join(row)
+            for row in self.convert(frame).T]))
+
+    def get_empty(self, default=0):
+        return np.zeros(self.size) + default
+
+    # @classmethod
+    # def draw_floor(self):
+    #     floor_height = self.size[1] / 5
+    #     floor = '-' * self.size[0]
+    #     print("\n" * self.size)
+"""NOTE:
+- when creating a loop:
+    - add to Loop.loops
+    - self.ran = False
+
+- every frame:
+    - if all loops in step have run, increment step
+    - every loop:
+        - if step is my step, run & attempt step ++ & self.ran = True
+
+- every step reset:
+    - if reset:
+        step = 0
+        all objects: self.ran = False
+"""
+class Loop:
+    step = 0
+    uerin = None
+    _loops = {}
+    def __init__(self, ui=None):
+        self.ran = False
+        self.ui = ui
+        self.add(self)
 
     @classmethod
-    def draw_floor(cls):
-        floor_height = cls.size[1] / 5
-        floor = '-' * cls.size[0]
-        print("\n" * cls.size)
+    def add(cls, new):
+        cls._loops.append(weakref.ref(new))
+
+    @classmethod
+    def step(cls):
+        cls.step += 1
+        if cls.step == len(cls.loops):
+            cls.step = 0
+
+    def run(self):
+        raise NotImplementedError()
+
+class UserLoop(Loop):
+    def run(self):
+        global userin
+        userin = msvcrt.getch()
+        super().step()
+
+class GameLoop(Loop):
+    def run(self):
+        global userin
+        while True:
+            if userin == 'q':
+                break
+            if self.ui is not None:
+                time.sleep(1 / HurdleSettings.LIVE_FPS)
+                frame = self.ui.get_empty(default=1)
+                frame[:10, :10] = 2
+                self.ui.draw(frame)
 
 if __name__ == '__main__':
-    env = Environment(name="test")
-    Cmd.clear()
-    # print(Cmd.size)
-    while True:
-        time.sleep(0.001)
-        Cmd.draw_blank()
-
+    # env = Environment(name="test")
+    gameloop = GameLoop(ui=Cmd())
+    userloop = UserLoop()
+    userthread = threading.Thread(target=userloop.run)
+    gameloop = threading.Thread(target=gameloop.run)
+    userthread.start()
+    gameloop.start()
