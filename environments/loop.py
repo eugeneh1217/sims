@@ -14,6 +14,8 @@ shutil.rmtree(GameSettings.log_path)
 os.makedirs(GameSettings.log_path)
 logging.basicConfig(
     filename=os.path.join(GameSettings.log_path, 'loop.log'),
+    format='%(asctime)s %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
     encoding='utf-8',
     level=logging.DEBUG)
 
@@ -31,6 +33,9 @@ logging.basicConfig(
     - if reset:
         step = 0
         all objects: self.ran = False
+
+NOTE: Potential solution: if waiting for user in,
+    create another thread to proceed "step"
 """
 class Loop:
     step = 0
@@ -43,6 +48,7 @@ class Loop:
 
     @classmethod
     def step_forward(cls):
+        logging.debug(f'moving from step {cls.step}')
         cls.step += 1
         if cls.step == len(cls.uids.get_uids()):
             cls.step = 0
@@ -59,35 +65,16 @@ class Loop:
         while True:
             logging.debug(f'{self.__class__.__name__} loop running')
             if self.frame_step == Loop.step:
-                logging.debug(
-                    f'{self.__class__.__name__} acquiring "check quit"'
-                )
                 self.lock.acquire()
-                logging.debug(
-                    f'"check quit" lock acquired by '
-                    f'{self.__class__.__name__}')
                 if self.check_quit():
+                    logging.debug(f'"should break" detected {self.__class__.__name__}')
                     should_break = True
-                    logging.debug(
-                        f'"should_break" detected '
-                        f'in {self.__class__.__name__}')
-                self.lock.release()
-                logging.debug(
-                    f'"check quit" lock released by '
-                    f'{self.__class__.__name__}')
-                if should_break:
-                    logging.debug(f'{self.__class__.__name__} breaking')
-                    break
-                self.frame()
-                self.lock.acquire()
-                logging.debug(
-                    f'"step forward" lock '
-                    f'acquired by {self.__class__.__name__}')
                 Loop.step_forward()
                 self.lock.release()
-                logging.debug(
-                    f'"step forward" lock '
-                    f'released by {self.__class__.__name__}')
+                self.frame()
+                if should_break:
+                    logging.debug(f'breaking {self.__class__.__name__}')
+                    break
         logging.debug(f'{self.__class__.__name__} thread killed')
 
 class UserLoop(Loop):
@@ -106,11 +93,7 @@ class UserLoop(Loop):
 
     def frame(self):
         new_userin = msvcrt.getch()
-        self.lock.acquire()
-        logging.debug('"userin" lock acquired by UserLoop')
         self.update_userin(new_userin)
-        self.lock.release()
-        logging.debug('"userin" lock released by UserLoop')
 
 class GameLoop(Loop):
     frame_step = 1
@@ -133,7 +116,7 @@ if __name__ == '__main__':
     # env = Environment(name="test")
     userloop = UserLoop()
     gameloop = GameLoop(userloop, ui=gui.Cmd())
-    userthread = threading.Thread(target=userloop.run)
+    userthread = threading.Thread(target=userloop.run, daemon=True)
     gamethread = threading.Thread(target=gameloop.run)
     userthread.start()
     gamethread.start()
