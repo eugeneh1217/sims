@@ -65,13 +65,13 @@ class Loop:
         while True:
             logging.debug(f'{self.__class__.__name__} loop running')
             if self.frame_step == Loop.step:
+                self.frame()
                 self.lock.acquire()
                 if self.check_quit():
                     logging.debug(f'"should break" detected {self.__class__.__name__}')
                     should_break = True
                 Loop.step_forward()
                 self.lock.release()
-                self.frame()
                 if should_break:
                     logging.debug(f'breaking {self.__class__.__name__}')
                     break
