@@ -10,8 +10,8 @@ from environments import gui
 from environments.settings import GameSettings
 from environments import uid
 
-shutil.rmtree(GameSettings.log_path)
-os.makedirs(GameSettings.log_path)
+if not os.path.isdir(GameSettings.log_path):
+    os.makedirs(GameSettings.log_path)
 logging.basicConfig(
     filename=os.path.join(GameSettings.log_path, 'loop.log'),
     format='%(asctime)s %(levelname)s: %(message)s',
@@ -36,9 +36,12 @@ logging.basicConfig(
 
 NOTE: Potential solution: if waiting for user in,
     create another thread to proceed "step"
+
+TODO: Ensure that only one key is captured per frame (i.e. synchronize threads)
+        if want to let the user play
 """
 class Loop:
-    step = 0
+    # step = 0
     uids = uid.UidSystem()
     QUIT_KEY = b'q'
     def __init__(self):
@@ -46,12 +49,12 @@ class Loop:
         self.lock = threading.Lock()
         self.ran = False
 
-    @classmethod
-    def step_forward(cls):
-        logging.debug(f'moving from step {cls.step}')
-        cls.step += 1
-        if cls.step == len(cls.uids.get_uids()):
-            cls.step = 0
+    # @classmethod
+    # def step_forward(cls):
+    #     logging.debug(f'moving from step {cls.step}')
+    #     cls.step += 1
+    #     if cls.step == len(cls.uids.get_uids()):
+    #         cls.step = 0
 
     def frame(self):
         raise NotImplementedError()
@@ -64,17 +67,17 @@ class Loop:
         logging.debug(f'{self.__class__.__name__} thread started')
         while True:
             logging.debug(f'{self.__class__.__name__} loop running')
-            if self.frame_step == Loop.step:
-                self.frame()
-                self.lock.acquire()
-                if self.check_quit():
-                    logging.debug(f'"should break" detected {self.__class__.__name__}')
-                    should_break = True
-                Loop.step_forward()
-                self.lock.release()
-                if should_break:
-                    logging.debug(f'breaking {self.__class__.__name__}')
-                    break
+            # if self.frame_step == Loop.step:
+            self.frame()
+            # self.lock.acquire()
+            if self.check_quit():
+                logging.debug(f'"should break" detected {self.__class__.__name__}')
+                should_break = True
+            # Loop.step_forward()
+            # self.lock.release()
+            # if should_break:
+            #     logging.debug(f'breaking {self.__class__.__name__}')
+            #     break
         logging.debug(f'{self.__class__.__name__} thread killed')
 
 class UserLoop(Loop):
