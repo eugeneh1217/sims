@@ -2,10 +2,10 @@ import unittest
 from unittest import mock
 import numpy as np
 
-from environments import gui
+from environment import gui
 
 @mock.patch(
-        'environments.gui.os.get_terminal_size', mock.Mock(return_value=(2, 2)))
+        'environment.gui.os.get_terminal_size', mock.Mock(return_value=(2, 2)))
 class TestCmd(unittest.TestCase):
     def setUp(self):
         self.cmd = gui.Cmd()

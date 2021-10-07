@@ -5,7 +5,7 @@ import msvcrt
 import os
 import logging
 
-from environments.settings import GameSettings
+from environment.settings import GameSettings
 
 if not os.path.isdir(GameSettings.log_path):
     os.makedirs(GameSettings.log_path)

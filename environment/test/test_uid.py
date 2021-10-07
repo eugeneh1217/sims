@@ -1,7 +1,7 @@
 import unittest
 import weakref
 
-from environments import uid
+from environment import uid
 
 class TestUidSystem(unittest.TestCase):
     # pylint: disable=too-few-public-methods
