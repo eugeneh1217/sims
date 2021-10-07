@@ -1,14 +1,17 @@
 import unittest
 from unittest import mock
+import threading
+import time
+
 import numpy as np
 
-from environment import gui
+from sims import environment
 
 @mock.patch(
-        'environment.gui.os.get_terminal_size', mock.Mock(return_value=(2, 2)))
+        'sims.environment.os.get_terminal_size', mock.Mock(return_value=(2, 2)))
 class TestCmd(unittest.TestCase):
     def setUp(self):
-        self.cmd = gui.Cmd()
+        self.cmd = environment.Cmd()
         self.test_frame = np.array([
             np.arange(3),
             np.arange(3)])

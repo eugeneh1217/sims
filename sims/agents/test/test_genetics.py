@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import math
 
-from hurdles import genetics
+from sims.agents import genetics
 
 class TestGenetic(unittest.TestCase):
     def setUp(self):

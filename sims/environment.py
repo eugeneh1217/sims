@@ -2,14 +2,11 @@ from __future__ import annotations
 import logging
 import msvcrt
 import os
-import shutil
-import time
 import threading
-import queue
 
-from environment import gui
-from environment.settings import GameSettings
-from environment import uid
+import numpy as np
+
+from sims.settings import GameSettings
 
 if not os.path.isdir(GameSettings.log_path):
     os.makedirs(GameSettings.log_path)
@@ -19,6 +16,54 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S',
     encoding='utf-8',
     level=logging.DEBUG)
+
+class Cmd:
+    """This class implements utilities to use the command line as a graphical interface
+        Note: everything is scaled by height
+    """
+    @property
+    def size(self):
+        return tuple(os.get_terminal_size())
+
+    def clear(self):
+        os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+
+    def convert(self, int_array: np.ndarray) -> np.ndarray:
+        """Maps an array of supported integers to symbols
+
+        Args:
+            int_array (np.ndarray): integer array to convert
+
+        Returns:
+            np.ndarray: symbol array
+        """
+        converted = np.array(int_array, dtype=object)
+        converted[converted == 0] = ' '
+        converted[converted == 1] = '_'
+        converted[converted == 2] = '|'
+        return converted
+
+    def draw(self, frame: np.ndarray):
+        """Draws array on commandline
+
+        Args:
+            frame (np.ndarray): array to draw
+        """
+        self.clear()
+        print('\n'.join([
+            ''.join(row)
+            for row in self.convert(frame.T)]))
+
+    def get_empty(self, default=0) -> np.ndarray:
+        """Generates an array with same shape as screen.
+
+        Args:
+            default (int, optional): Value to fill empty array with. Defaults to 0.
+
+        Returns:
+            np.ndarray: empty array
+        """
+        return np.zeros(self.size) + default
 
 class Loop:
     """This abstract class defines an object that runs several loops in parallel.
