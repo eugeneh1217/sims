@@ -21,61 +21,84 @@ logging.basicConfig(
     level=logging.DEBUG)
 
 class Loop:
-    QUIT_SYMBOL = b'q'
+    """This abstract class defines an object that runs several loops in parallel.
+        Usage: Override main loop. Custom loops can be defined with the @loop decorator.
+            Custom loops define what occurs in each cycle of the loop.
+            If custom loops are defined, run method must be overriden to run the custom loop.
 
-    def __init__(self, listen_userin: bool=True):
-        self._userin = None
-        self.userin_queue = queue.Queue()
-        self.threads = [
-            threading.Thread(target=self.main, daemon=False),
-            threading.Thread(target=self.user_queue_worker, daemon=True)]
-        if listen_userin:
-            self.threads.append(threading.Thread(target=self.listen_userin, daemon=True))
+    Raises:
+        NotImplementedError: main loop is not overriden, but called
+    """
+    TERMINATE_SYMBOL = b'q'
+    def __init__(self):
+        self._last_key = None
+        self.lock = threading.Lock()
 
-    # raw access to _userin ok because
-    # userin checked very often by non listening threads
     @property
-    def userin(self):
-        return self._userin
+    def last_key(self):
+        with self.lock:
+            last = self._last_key
+        return last
 
-    def _update_userin(self, new):
-        self._userin = new
+    @last_key.setter
+    def last_key(self, new):
+        with self.lock:
+            self._last_key = new
 
-    @userin.setter
-    def userin(self, new):
-        return self.userin_queue.put((self._update_userin, new))
+    def loop(func: function) -> function:
+        """Decorator to run method in a loop that terminates with terminate method.
 
-    def user_queue_worker(self):
-        while True:
-            if self.check_quit():
-                break
-            task = self.userin_queue.get()
-            if hasattr(task, '__iter__'):
-                task[0](*task[1:])
-            else:
-                task()
-            self.userin_queue.task_done()
+        Args:
+            func (function): function to decorate
+        """
+        def inner(self, *args, **kwargs):
+            while True:
+                if self.terminate():
+                    break
+                func(self, *args, **kwargs)
+        return inner
 
-    def check_quit(self):
-        return self.userin == QUIT_SYMBOL
+    def terminate(self) -> bool:
+        """Returns True if loops should terminate, False if otherwise
 
-    def run(self, join=True):
-        for thread in self.threads:
-            thread.start()
-        if join:
-            for thread in self.threads:
-                thread.join()
+        Returns:
+            bool: should terminate
+        """
+        return self.last_key == self.TERMINATE_SYMBOL
 
-    def listen_userin(self):
-        while True:
-            if self.check_quit():
-                break
-            self.userin = msvcrt.getch()
+    @loop
+    def user(self):
+        """Default loop to listen for user input.
+        """
+        self.last_key = msvcrt.getch()
+        logging.debug(f'key {self.last_key} detected')
 
+    @loop
     def main(self):
-        while True:
-            if self.check_quit():
-                break
+        """Default method to run every frame. Should be overriden.
+
+        Raises:
+            NotImplementedError: main not overriden
+        """
+        raise NotImplementedError()
+
+    def run(self):
+        """Starts and waits for loops user and main loops run on separate threads, and joins them.
+            Should be overriden if custom loops are defined.
+        """
+        logging.debug(f'starting {self.__class__.__name__} loop')
+        main_thread = threading.Thread(target=self.main)
+        user_thread = threading.Thread(target=self.user, daemon=True)
+        main_thread.start()
+        user_thread.start()
+        main_thread.join()
+        user_thread.join()
+
+class TestLoop(Loop):
+    @Loop.loop
+    def main(self):
+        print(self.last_key)
 
 if __name__ == '__main__':
-    pass
+    test = TestLoop()
+    test.run()
