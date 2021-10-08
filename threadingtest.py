@@ -5,7 +5,7 @@ import msvcrt
 import os
 import logging
 
-from sims import Settings
+from settings import Settings
 
 if not os.path.isdir(Settings.log_path):
     os.makedirs(Settings.log_path)
