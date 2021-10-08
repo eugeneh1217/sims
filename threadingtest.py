@@ -5,11 +5,11 @@ import msvcrt
 import os
 import logging
 
-from environment.settings import GameSettings
+from sims import Settings
 
-if not os.path.isdir(GameSettings.log_path):
-    os.makedirs(GameSettings.log_path)
-log_file_path = os.path.join(GameSettings.log_path, 'threadtest.log')
+if not os.path.isdir(Settings.log_path):
+    os.makedirs(Settings.log_path)
+log_file_path = os.path.join(Settings.log_path, 'threadtest.log')
 if os.path.isfile(log_file_path):
     os.remove(log_file_path)
 logging.basicConfig(
