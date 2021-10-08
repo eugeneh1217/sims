@@ -1,75 +1,141 @@
-from future import __annotations__
-import time
+from __future__ import annotations
 
 import numpy as np
 
-from environment import loop, gui
+from sims import environment as env
+from settings import Settings
 
-class HurdleLoop(loop.Loop):
-    def __init__(self, fps=30):
+class HurdleLoop(env.Loop):
+    def __init__(self, ui=None):
         super().__init__()
-        self.ui = gui.Cmd()
-        self.fps = fps
+        if ui == 'CMD':
+            self.ui = env.Cmd()
+        if ui is None:
+            self.ui = env.Headless()
+        self.gameobjects = {Ground.name: Ground(Settings.ground_height)}
+        self.gameobjects[Hurdler.name] = [Hurdler(self.gameobjects['ground']), ]
+        self.gameobjects[Hurdle.name] = [Hurdle(self.gameobjects['ground'], Settings.hurdle_spawn_x), ]
+        self.frame_number = 0
+        self.frame = self.ui.get_empty()
 
-    @loop.Loop.loop
+    def terminate(self):
+        return self.frame_number == 100
+
+    def remove_gameobject(self, gameobject):
+        gameobjects_list = self.gameobjects[gameobject.name]
+        gameobjects_list.remove(gameobject)
+
+    def get_state(self) -> StatePacket:
+        return StatePacket(self.frame_number, self.last_key)
+
+    def run_gameobject(self, gameobject):
+        state = self.get_state()
+        gameobject.act(state)
+        if gameobject.terminated:
+            self.remove_gameobject(gameobject)
+            return
+        gameobject.draw(self.frame)
+
+    @env.Loop.loop
     def main(self):
-        time.sleep(1 / self.fps)
-        self.ui.clear()
-        self.ui.draw(self.ui.get_empty(default=1))
+        self.frame = self.ui.get_empty(default=0)
+        with self.lock:
+            for gameobject_type in self.gameobjects.values():
+                if hasattr(gameobject_type, '__iter__'):
+                    for gameobject in gameobject_type:
+                        self.run_gameobject(gameobject)
+                else:
+                    self.run_gameobject(gameobject_type)
+            self.frame_number += 1
+            if self.last_key != self.TERMINATE_SYMBOL:
+                self.last_key = None
+        self.ui.draw(self.frame, self.get_state())
 
-class HurdleGame:
-    def __init__(self):
-        self.gameobjects = []
-        self.ground = GameObject()
-
-    def isgrounded(self, gameobject: GameObject):
-        if
+class StatePacket:
+    def __init__(self, frame_number, userin):
+        self.frame_number = frame_number
+        self.userin = userin
 
 class GameObject:
-    def __init__(
-        self, width, height
-        position: np.ndarray=None,
-        velocity: np.ndarray=None,
-        acceleration: np.ndarray=None):
-        self.width = width
-        self.height = height
-        self.displacement = displacement
-        if self.displacement is None:
-            self.displacement = np.zeros(2)
-        self.velocity = velocity
-        if self.velocity is None:
-            self.velocity = np.zeros(2)
-        self.acceleration = acceleration
-        if self.acceleration is None:
-            self.acceleration = np.zeros(2)
+    terminated = False
+    def __init__(self):
+        self.displacement = 0
+        self.velocity = 0
+        self.acceleration = 0
 
-    def get_top(self):
-        return self.position[1] + self.height
+    def terminate(self):
+        self.terminated = True
 
-    def get_bottom(self):
-        return self.position[1]
+    def draw(self, frame: np.ndarray):
+        raise NotImplementedError()
 
-    def get_left(self):
-        return self.position[0]
+class Hurdler(GameObject):
+    name = 'hurdler'
+    def __init__(self, ground):
+        super().__init__()
+        self.ground = ground
+        self.displacement = np.array([10, self.ground.top()])
 
-    def get_right(self):
-        return self.position[0] + self.width
+    def isgrounded(self):
+        return self.displacement[1] - self.ground.top() <= 0
 
-    def is_colliding(self, other: GameObject):
-        if self.get_left() > other.get_right() or self.get_right() < other.get_left():
-            if self.get_bottom() > other.get_top() or self.get_top() < other.get_bottom():
-                return True
-        return False
+    def jump(self):
+        if self.isgrounded():
+            self.velocity += np.array([0, Settings.hurdler_jump_speed])
 
-    def is_grounded(self):
-        if self.get_bottom() <= self.floor.position[1]:
-            return True
-        return False
+    def act(self, state: StatePacket):
+        if state.frame_number % 25 == 0:
+            self.jump()
+        self.move()
 
     def move(self):
+        if not self.isgrounded():
+            self.acceleration = Settings.gravity
         self.velocity += self.acceleration
         self.displacement += self.velocity
+        if self.isgrounded():
+            self.displacement = np.array([self.displacement[0], self.ground.top()])
+
+    def draw(self, frame: np.ndarray):
+        frame[
+            self.displacement[0]: self.displacement[0] + Settings.hurdler_width,
+            self.displacement[1]: self.displacement[1] + Settings.hurdler_height] = 3
+
+class Hurdle(GameObject):
+    name = 'hurdle'
+    def __init__(self, ground: Ground, spawn_x: int):
+        super().__init__()
+        self.ground = ground
+        self.displacement = np.array([spawn_x, self.ground.top()])
+
+    def act(self, state: StatePacket):
+        self.move()
+
+    def move(self):
+        self.displacement += Settings.hurdle_drift
+        if self.displacement[0] < 0:
+            self.terminate()
+
+    def draw(self, frame: np.ndarray):
+        frame[
+            self.displacement[0]: self.displacement[0] + Settings.hurdle_width,
+            self.displacement[1]: self.displacement[1] + Settings.hurdle_height] = 4
+
+class Ground(GameObject):
+    name = 'ground'
+    def __init__(self, ground_height):
+        self.displacement = np.array([0, ground_height])
+
+    def top(self):
+        return self.displacement[1] + 1
+
+    def act(self, state: StatePacket):
+        pass
+
+    def draw(self, frame: np.ndarray):
+        frame[:, self.displacement[1]] = 1
 
 if __name__ == '__main__':
     hurdle = HurdleLoop()
     hurdle.run()
+    env.Cv().to_video()

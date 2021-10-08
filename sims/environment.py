@@ -3,28 +3,88 @@ import logging
 import msvcrt
 import os
 import threading
+import time
+import matplotlib.pyplot as plt
 
+import cv2 as cv
 import numpy as np
 
-from sims.settings import GameSettings
+from settings import Settings
 
-if not os.path.isdir(GameSettings.log_path):
-    os.makedirs(GameSettings.log_path)
+if not os.path.isdir(Settings.log_path):
+    os.makedirs(Settings.log_path)
 logging.basicConfig(
-    filename=os.path.join(GameSettings.log_path, 'loop.log'),
+    filename=os.path.join(Settings.log_path, 'environment.log'),
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     encoding='utf-8',
     level=logging.DEBUG)
 
-class Cmd:
+class Ui:
+    def __init__(self, size=None):
+        self.size = size
+        if self.size is None:
+            self.size = np.array([1000, 1000])
+
+    def display_orientation(self, frame):
+        return np.flip(frame.T, axis=0)
+
+    def draw(self):
+        raise NotImplementedError()
+
+    def get_empty(self):
+        raise NotImplementedError()
+
+class Headless(Ui):
+    def __init__(self, size=None, save_dir=None):
+        super().__init__(size=size)
+        self.save_dir = save_dir
+        if self.save_dir is None:
+            self.save_dir = Settings.frame_save_path
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir)
+
+    def draw(self, frame: np.ndarray, state) -> None:
+        np.save(os.path.join(self.save_dir, f'{state.frame_number}.npy'), frame.astype(int))
+
+    def get_empty(self, *args, **kwargs):
+        return np.zeros(self.size, dtype=object)
+
+class Cv(Ui):
+    PIXEL_MAP = [(235, 64, 52),]
+    def __init__(self, size=None, load_dir=None, out_path=None):
+        super().__init__(size=size)
+        self.load_dir = load_dir
+        if self.load_dir is None:
+            self.load_dir = Settings.frame_save_path
+        self.out_path = out_path
+        if self.out_path is None:
+            self.out_path = Settings.video_out_path
+        if not os.path.isdir(self.out_path):
+            os.makedirs(self.out_path)
+
+    def convert(self, frame: np.ndarray):
+        converted = np.zeros((*frame.shape, 3))
+        for i in range(len(self.PIXEL_MAP)):
+            converted[frame == i] = self.PIXEL_MAP[i]
+        return converted
+
+    def to_video(self, resolution=(1000, 1000)):
+        writer = cv.VideoWriter(os.path.join(self.out_path, 'output.avi'), cv.VideoWriter_fourcc(*"FMP4"), 10, resolution)
+        for frame_file_name in os.listdir(self.load_dir):
+            loaded_frame = np.load(os.path.join(self.load_dir, frame_file_name))
+            loaded_frame = self.convert(loaded_frame)
+            loaded_frame = np.flip(loaded_frame.transpose((1, 0, 2)), axis=0)
+            loaded_frame = cv.resize(loaded_frame, resolution)
+            loaded_frame = cv.cvtColor(loaded_frame.astype(np.uint8), cv.COLOR_RGB2BGR)
+            writer.write(loaded_frame)
+        writer.release()
+
+class Cmd(Ui):
     """This class implements utilities to use the command line as a graphical interface
         Note: everything is scaled by height
     """
-    @property
-    def size(self):
-        return tuple(os.get_terminal_size())
-
+    PIXEL_MAP = [' ', '-', '|', '*', 'x']
     def clear(self):
         os.system('cls' if os.name in ('nt', 'dos') else 'clear')
 
@@ -38,12 +98,11 @@ class Cmd:
             np.ndarray: symbol array
         """
         converted = np.array(int_array, dtype=object)
-        converted[converted == 0] = ' '
-        converted[converted == 1] = '_'
-        converted[converted == 2] = '|'
+        for num in range(len(self.PIXEL_MAP)):
+            converted[converted == num] = self.PIXEL_MAP[num]
         return converted
 
-    def draw(self, frame: np.ndarray):
+    def draw(self, frame: np.ndarray, state) -> None:
         """Draws array on commandline
 
         Args:
@@ -52,7 +111,7 @@ class Cmd:
         self.clear()
         print('\n'.join([
             ''.join(row)
-            for row in self.convert(frame.T)]))
+            for row in np.array(self.convert(self.display_orientation(frame)), dtype=object)]))
 
     def get_empty(self, default=0) -> np.ndarray:
         """Generates an array with same shape as screen.
@@ -63,7 +122,7 @@ class Cmd:
         Returns:
             np.ndarray: empty array
         """
-        return np.zeros(self.size) + default
+        return np.array(np.zeros(self.size) + default, dtype=object)
 
 class Loop:
     """This abstract class defines an object that runs several loops in parallel.
@@ -77,7 +136,7 @@ class Loop:
     TERMINATE_SYMBOL = b'q'
     def __init__(self):
         self._last_key = None
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     @property
     def last_key(self):
@@ -145,5 +204,10 @@ class TestLoop(Loop):
         print(self.last_key)
 
 if __name__ == '__main__':
-    test = TestLoop()
-    test.run()
+    # test = TestLoop()
+    # test.run()
+    # cv.imshow('test', np.zeros((500, 500)))
+    # while cv.getWindowProperty('test', cv.WND_PROP_VISIBLE) > 0:
+    #     cv.waitKey(50)
+    ui = Cv()
+    ui.to_video()

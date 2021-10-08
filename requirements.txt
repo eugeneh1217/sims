@@ -1,2 +1,4 @@
 numpy
 pylint
+opencv-python
+matplotlib
