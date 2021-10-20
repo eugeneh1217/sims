@@ -2,3 +2,4 @@ numpy
 pylint
 opencv-python
 matplotlib
+getch
