@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import numpy as np
 
 from sims import environment as env
@@ -137,5 +138,8 @@ class Ground(GameObject):
 
 if __name__ == '__main__':
     hurdle = HurdleLoop()
+    print("Starting hurdle loop...")
     hurdle.run()
+    print("Visualizing...")
     env.Cv().to_video()
+    print("done")

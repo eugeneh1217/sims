@@ -69,7 +69,7 @@ class Cv(Ui):
             converted[frame == i] = self.PIXEL_MAP[i]
         return converted
 
-    def to_video(self, resolution=(1000, 1000)):
+    def to_video(self, resolution=(500, 500)):
         writer = cv.VideoWriter(os.path.join(self.out_path, 'output.avi'), cv.VideoWriter_fourcc(*"FMP4"), 10, resolution)
         for frame_file_name in os.listdir(self.load_dir):
             loaded_frame = np.load(os.path.join(self.load_dir, frame_file_name))
