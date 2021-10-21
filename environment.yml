@@ -1,0 +1,8 @@
+name: .sims
+
+dependencies:
+	- opencv
+	- pip
+		- numpy
+		- pylint
+		- matplotlib
