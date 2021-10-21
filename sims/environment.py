@@ -43,7 +43,7 @@ class Headless(Ui):
         return np.zeros(self.size, dtype=object)
 
 class Cv(Ui):
-    PIXEL_MAP = [(235, 64, 52),]
+    PIXEL_MAP = [(179, 232, 211), (0, 0, 0), (84, 98, 107), (209, 196, 50)]
     def __init__(self, size, load_dir, out_path):
         super().__init__(size)
         self.load_dir = load_dir
