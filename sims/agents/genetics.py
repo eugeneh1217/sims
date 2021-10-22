@@ -1,21 +1,11 @@
 from __future__ import annotations
 import numpy as np
 
-"""
-TODO: trim binary literals
-"""
-
-class ErrorMessages:
-    invalid_genotype_literal = (
-        'attempted to assign invalid literal"{literal}" to "{genotype}" Genotype')
-    invalid_binary_literal = (
-        'attempted to assign invalid literal"{literal}" to Binary'
-    )
-
 class Binary:
     """Wrapper class for python built-in binary strings with least significant byte at right
     """
     dtype = np.uint8
+    invalid_literal_msg = 'attempted to assign invalid literal"{literal}" to Binary'
 
     @staticmethod
     def array_to_str(arr: np.ndarray):
@@ -28,9 +18,9 @@ class Binary:
     @classmethod
     def validate_literal(cls, new_literal):
         if not isinstance(new_literal, np.ndarray):
-            raise ValueError(ErrorMessages.invalid_binary_literal.format(literal=new_literal))
+            raise ValueError(cls.invalid_literal_msg.format(literal=new_literal))
         if new_literal.dtype != cls.dtype:
-            raise ValueError(ErrorMessages.invalid_binary_literal.format(literal=new_literal))
+            raise ValueError(cls.invalid_literal_msg.format(literal=new_literal))
 
     @classmethod
     def from_array(cls, arr: np.ndarray):
@@ -74,6 +64,8 @@ class Binary:
         self.flip(int(np.random.rand() * self.literal.size))
 
 class Genotype:
+    invalid_literal_msg = 'attempted to assign invalid literal"{literal}" to "{genotype}" Genotype'
+
     def __init__(self, literal, mutation_rate):
         self._literal = literal
         self.mutation_rate = mutation_rate
@@ -88,6 +80,7 @@ class Genotype:
         self._literal = new_literal
 
     # pylint: disable=unused-argument
+    # pylint: disable=arguments-differ
     @classmethod
     def validate_literal(cls, new_literal):
         raise NotImplementedError()
@@ -103,7 +96,7 @@ class Nbit(Genotype):
     def validate_literal(cls, new_literal):
         if not isinstance(new_literal, Binary):
             raise ValueError(
-                ErrorMessages.invalid_genotype_literal.format(
+                cls.invalid_literal_msg.format(
                     literal=new_literal, genotype=cls.__name__))
 
     def mutate(self):

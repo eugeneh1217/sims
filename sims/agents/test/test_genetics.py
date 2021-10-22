@@ -1,4 +1,8 @@
 import unittest
+from unittest import mock
+
+import numpy as np
+
 from sims.agents import genetics
 
 class TestBinary(unittest.TestCase):
@@ -56,29 +60,68 @@ class TestBinary(unittest.TestCase):
         self.binary[:] = 0
         actual = self.binary
         expected = genetics.Binary(0)
-        print(str(actual), str(expected))
         self.assertEqual(actual, expected)
 
     def test_array_to_str(self):
-        pass
+        test_array = np.array([1, 1, 0], dtype=np.uint8)
+        actual = genetics.Binary.array_to_str(test_array)
+        expected = '0b110'
+        self.assertEqual(actual, expected)
 
     def test_str_to_int(self):
-        pass
+        test_str = '0b110'
+        actual = genetics.Binary.str_to_int(test_str)
+        expected = 6
+        self.assertEqual(actual, expected)
 
-    def test_validate_literal(self):
-        pass
+    def test_validate_literal_not_array(self):
+        test_literal = 'hello'
+        with self.assertRaises(ValueError):
+            genetics.Binary.validate_literal(test_literal)
+
+    def test_validate_literal_wrong_dtype(self):
+        test_literal = np.array([1, 1, 0], dtype=np.uint16)
+        with self.assertRaises(ValueError):
+            genetics.Binary.validate_literal(test_literal)
+
+    def test_validate_literal_true(self):
+        test_literal = np.array([1, 1, 0], dtype=np.uint8)
+        genetics.Binary.validate_literal(test_literal)
 
     def test_from_array(self):
-        pass
-
-    def test_setter(self):
-        pass
+        actual = genetics.Binary.from_array(np.array([1, 1, 0]))
+        expected = self.binary
+        self.assertEqual(actual, expected)
 
     def test_flip(self):
-        pass
+        self.binary.flip(2)
+        actual = self.binary
+        expected = genetics.Binary(7)
+        self.assertEqual(actual, expected)
 
-    def test_flip_random(self):
-        pass
+    @mock.patch('sims.agents.genetics.np.random.rand')
+    def test_flip_random_0th_index(self, mock_rand):
+        mock_rand.return_value = 0
+        self.binary.flip_random()
+        actual = self.binary
+        expected = genetics.Binary(2)
+        self.assertEqual(actual, expected)
+
+    @mock.patch('sims.agents.genetics.np.random.rand')
+    def test_flip_random_1st_index(self, mock_rand):
+        mock_rand.return_value = .5
+        self.binary.flip_random()
+        actual = self.binary
+        expected = genetics.Binary(4)
+        self.assertEqual(actual, expected)
+
+    @mock.patch('sims.agents.genetics.np.random.rand')
+    def test_flip_random_2nd_index(self, mock_rand):
+        mock_rand.return_value = 0.999
+        self.binary.flip_random()
+        actual = self.binary
+        expected = genetics.Binary(7)
+        self.assertEqual(actual, expected)
 
 if __name__ == '__main__':
     unittest.main()
