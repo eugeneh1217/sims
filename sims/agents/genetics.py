@@ -1,49 +1,56 @@
 from __future__ import annotations
+
+import copy
+
 import numpy as np
 
 class Binary:
     """Wrapper class for python built-in binary strings with least significant byte at right
     """
     dtype = np.uint8
-    invalid_literal_msg = 'attempted to assign invalid literal"{literal}" to Binary'
+    invalid_literal_type_msg = 'attempted to assign literal of invalid type "{literal_type}" to Binary'
+    invalid_literal_dtype_msg = 'attempted to assign literal of invalid dtype "{literal_type}" to Binary'
+    invalid_literal_value_msg = 'attempted to assign literal with invalid value "{literal}" of invalid dtype to Binary'
 
     @staticmethod
     def array_to_str(arr: np.ndarray):
         return '0b' + ''.join(arr.astype(str))
 
-    @staticmethod
-    def str_to_int(string: str):
-        return int(string, 2)
-
     @classmethod
-    def validate_literal(cls, new_literal):
+    def validate_literal(cls, new_literal: np.ndarray):
         if not isinstance(new_literal, np.ndarray):
-            raise ValueError(cls.invalid_literal_msg.format(literal=new_literal))
+            raise ValueError(cls.invalid_literal_type_msg.format(literal_type=type(new_literal)))
         if new_literal.dtype != cls.dtype:
-            raise ValueError(cls.invalid_literal_msg.format(literal=new_literal))
+            raise ValueError(cls.invalid_literal_dtype_msg.format(literal_type=new_literal.dtype))
+        if new_literal[(new_literal != 0) & (new_literal != 1)].size != 0:
+            raise ValueError(cls.invalid_literal_value_msg.format(literal=new_literal))
 
-    @classmethod
-    def from_array(cls, arr: np.ndarray):
-        return Binary(cls.str_to_int(cls.array_to_str(arr)))
-
-    def __init__(self, literal: int):
-        self._literal = np.array([*bin(literal)][2:], dtype=self.dtype)
+    def __init__(self, literal: int | str | np.ndarray):
+        self._literal = None
+        if isinstance(literal, int) or isinstance(literal, self.dtype):
+            self.literal = np.array([*bin(literal)][2:], dtype=self.dtype)
+        elif isinstance(literal, str):
+            self.literal = np.array([*literal[2:]], dtype=self.dtype)
+        elif isinstance(literal, np.ndarray):
+            self.literal = literal.astype(self.dtype)
+        else:
+            self.literal = literal
 
     def __str__(self):
         return self.array_to_str(self.literal)
 
     def __int__(self):
-        return self.str_to_int(str(self))
+        return int(str(self), 2)
 
     def __len__(self):
         return self.literal.size
 
     def __eq__(self, other: Binary):
-        return int(self) == int(other)
+        return str(self) == str(other)
 
     def __getitem__(self, key: slice):
         segment = self.literal[key]
-        return self.from_array(segment)
+        return self.__class__(segment)
 
     def __setitem__(self, key: slice, value: int):
         self.literal[key] = value
@@ -53,9 +60,15 @@ class Binary:
         return self._literal
 
     @literal.setter
-    def set_literal(self, new_literal: np.ndarray):
+    def literal(self, new_literal: np.ndarray):
         self.validate_literal(new_literal)
         self._literal = new_literal
+
+    def append(self, new_segment: np.ndarray | Binary):
+        if isinstance(new_segment, np.ndarray):
+            self.literal = np.append(self.literal, new_segment).astype(self.dtype)
+        if isinstance(new_segment, Binary):
+            self.append(new_segment.literal)
 
     def flip(self, position: int):
         self.literal[position] = int(not bool(self.literal[position]))
@@ -64,21 +77,28 @@ class Binary:
         self.flip(int(np.random.rand() * self.literal.size))
 
 class Genotype:
-    invalid_literal_msg = 'attempted to assign invalid literal"{literal}" to "{genotype}" Genotype'
+    invalid_literal_msg = (
+        'attempted to assign invalid '
+        'literal "{literal}" to "{genotype}" Genotype')
 
     def __init__(self, literal, mut_rate):
         self._literal = literal
         self.mut_rate = mut_rate
 
     def __str__(self):
-        return f'{self.__class__.name} Genotype; literal={self.literal}; mut_rate={self.mut_rate}'
+        return (
+            f'{self.__class__.__name__} Genotype;'
+            f'literal={self.literal}; mut_rate={self.mut_rate}')
+
+    def __getitem__(self, key):
+        return self.__class__(self.literal[key], self.mut_rate)
 
     @property
     def literal(self):
         return self._literal
 
     @literal.setter
-    def set_literal(self, new_literal):
+    def literal(self, new_literal):
         self.validate_literal(new_literal)
         self._literal = new_literal
 
@@ -107,11 +127,27 @@ class Nbit(Genotype):
     def mutate(self):
         self.literal.flip_random()
 
-    def crossover(self, other, position):
-        this_segment = self.literal[position:]
-        other_segment = self.literal[position:]
-        self.literal[position] = other_segment
-        other.literal[position] = this_segment
+    def append(self, other: np.ndarray | Binary | Nbit):
+        if isinstance(other, Nbit):
+            self.literal.append(other.literal)
+        else:
+            self.literal.append(other)
+
+    def crossover(self, other: Nbit, position: int) -> tuple[Nbit, Nbit]:
+        """Single point crossover where literal[position:] of self and other are swapped
+
+        Args:
+            other (Nbit): other parent
+            position (int): position
+
+        Returns:
+            tuple[Nbit, Nbit]: offspring
+        """
+        offspring_a = self[:position]
+        offspring_b = other[:position]
+        offspring_a.append(other[position:])
+        offspring_b.append(self[position:])
+        return offspring_a, offspring_b
 
 class Individual:
     uninitialized_fitness_msg = 'fitness accessed before initialized'
