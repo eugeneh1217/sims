@@ -66,9 +66,12 @@ class Binary:
 class Genotype:
     invalid_literal_msg = 'attempted to assign invalid literal"{literal}" to "{genotype}" Genotype'
 
-    def __init__(self, literal, mutation_rate):
+    def __init__(self, literal, mut_rate):
         self._literal = literal
-        self.mutation_rate = mutation_rate
+        self.mut_rate = mut_rate
+
+    def __str__(self):
+        return f'{self.__class__.name} Genotype; literal={self.literal}; mut_rate={self.mut_rate}'
 
     @property
     def literal(self):
@@ -80,7 +83,6 @@ class Genotype:
         self._literal = new_literal
 
     # pylint: disable=unused-argument
-    # pylint: disable=arguments-differ
     @classmethod
     def validate_literal(cls, new_literal):
         raise NotImplementedError()
@@ -88,7 +90,7 @@ class Genotype:
     def mutate(self):
         raise NotImplementedError()
 
-    def crossover(self):
+    def crossover(self, other, position):
         raise NotImplementedError()
 
 class Nbit(Genotype):
@@ -114,12 +116,48 @@ class Individual:
         self.fitness = fitness
         self.history = history
 
-class Simulation:
-    def __init__(self):
+    def report(self):
         pass
+
+class Environment:
+    invalid_genotypes_msg = 'Attempted to load invalid genotypes "{genotypes}"'
+
+    def __init__(self, simulation):
+        self.simulation = simulation
+
+    def load_genotypes(self, genotypes: list[Genotype]):
+        if not hasattr(genotypes, '__iter__'):
+            raise ValueError(self.invalid_genotypes_msg)
+        if not isinstance(genotypes[0], Genotype):
+            raise ValueError(self.invalid_genotypes_msg)
+        self.simulation.load(genotypes)
+
+    def run(self):
+        self.simulation.run()
 
 class GeneticAlgorithm:
     def __init__(self):
+        pass
+
+    def select(self):
+        pass
+
+    def breed(self):
+        pass
+
+    def mutate(self):
+        pass
+
+    def run_generation(self):
+        pass
+
+    def check_termination(self):
+        pass
+
+    def generation_report(self):
+        pass
+
+    def algorithm_report(self):
         pass
 
 if __name__ == '__main__':

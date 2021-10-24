@@ -8,9 +8,8 @@ class Settings:
     video_out_path = os.path.join('/mnt', 'c', 'Users', 'eugen', 'Desktop', 'simsdata', 'new')
     video_fps = 30
 
-    map_size = np.array([640, 480])
+    map_shape = np.array([640, 480])
     gravity = np.array([0, -1])
-    ground_height = 100
     frames = 200
 
     hurdler_height = 30
@@ -22,4 +21,4 @@ class Settings:
     hurdle_height = 50
     hurdle_width = 50
     hurdle_drift = np.array([-10, 0])
-    hurdle_spawn_x = 480
+    hurdle_spawn_x = 640
