@@ -14,6 +14,9 @@ class Simulation:
         self.frames = []
         self.ui = vis.Cv(Settings.map_shape, Settings.video_out_path)
 
+    def all_gameobjects(self):
+        return [go for gos in self.gameobjects.values() for go in gos]
+
     def terminate(self) -> int:
         return self.frame_number == Settings.frames
 
@@ -37,7 +40,7 @@ class Simulation:
         gameobject.act(state)
         if isinstance(gameobject, Hurdler):
             if gameobject.check_hurdle_collisions(self.gameobjects[Hurdle.name]):
-                gameobject.terminate()
+                gameobject.terminate(self.get_state())
         if gameobject.terminated:
             self.remove_gameobject(gameobject)
             print(f"terminated {gameobject.__class__.name} @ frame {self.frame_number}")
@@ -48,10 +51,8 @@ class Simulation:
             self.run_gameobject(hurdle)
 
     def run_hurdlers(self):
-        actions = []
         for hurdler in self.gameobjects[Hurdler.name]:
-            actions.append(self.run_gameobject(hurdler))
-        return actions
+            self.run_gameobject(hurdler)
 
     def run_gameobjects(self):
         self.run_hurdlers()
@@ -59,7 +60,7 @@ class Simulation:
 
     def draw(self):
         frame = self.ui.get_empty()
-        for gameobject in [go for gos in self.gameobjects.values() for go in gos]:
+        for gameobject in self.all_gameobjects():
             frame = gameobject.draw(frame)
         self.frames.append(frame)
 
@@ -73,10 +74,13 @@ class Simulation:
             1. Checks for simulation termination
             2. runs main
         """
-        print('running HURDLES...')
+        print(f'running HURDLES with {len(self.all_gameobjects())} hurdlers...')
+        self.frame_number = 0
         while True:
             if self.terminate():
                 print(f"HURDLES terminated at frame {self.frame_number}")
+                for gameobject in self.all_gameobjects():
+                    gameobject.terminate(self.get_state())
                 break
             self.main()
         print('video processing...')
@@ -91,10 +95,11 @@ class StatePacket:
 
 # NOTE: Rectangular objects are centered at bottom left
 class GameObject:
-    name = NotImplemented
+    name = None
     terminated = False
 
     def __init__(self):
+        self.termination_state = None
         self.displacement = 0
         self.velocity = 0
         self.acceleration = 0
@@ -104,8 +109,9 @@ class GameObject:
     def name(self):
         return self.__class__.name
 
-    def terminate(self):
+    def terminate(self, state: StatePacket):
         self.terminated = True
+        self.termination_state = state
 
 class Square(GameObject):
     width = 0
@@ -138,8 +144,9 @@ class Hurdler(Square):
     spawn_x = Settings.hurdler_x_spawn
     width = Settings.hurdler_width
     height = Settings.hurdler_height
-    def __init__(self):
+    def __init__(self, history: list=None):
         super().__init__()
+        self.history = history or []
         self.displacement = np.array([self.spawn_x, 0], np.float64)
 
     def isgrounded(self):
@@ -176,8 +183,8 @@ class Hurdler(Square):
         return frame_copy
 
 class ConstantHurdler(Hurdler):
-    def __init__(self, period):
-        super().__init__()
+    def __init__(self, period: int, history: list=None):
+        super().__init__(history=history)
         self.period = period
 
     def act(self, state: StatePacket):
@@ -186,7 +193,31 @@ class ConstantHurdler(Hurdler):
             self.jump()
             action = 'j'
         self.move()
-        return action
+        self.history.append(action)
+
+class ProximityHurdler(Hurdler):
+    def __init__(self, threshold: int, history: list=None):
+        super().__init__(history=history)
+        self.threshold = threshold
+
+    def proximity(self, hurdle: Hurdle):
+        return hurdle.displacement[0] - self.displacement[0]
+
+    def closest_hurdle(self, hurdles: list[Hurdle]):
+        closest = hurdles[0]
+        for hurdle in hurdles:
+            if self.proximity(hurdle) < self.proximity(closest):
+                closest = hurdle
+        return hurdle, self.proximity(closest)
+    
+    def act(self, state: StatePacket):
+        action = None
+        _, prox = self.closest_hurdle(state.hurdlers)
+        if prox < self.threshold:
+            self.jump()
+            action = 'j'
+        self.move()
+        self.history.append(action)
 
 class Hurdle(Square):
     name = 'Hurdle'
@@ -214,13 +245,8 @@ class Hurdle(Square):
         return frame_copy
 
 if __name__ == '__main__':
-    constant_hurdlers = [
-        ConstantHurdler(10),
-        ConstantHurdler(20),
-        ConstantHurdler(25),
-        ConstantHurdler(30),
-        ConstantHurdler(40),
-        ConstantHurdler(50),
+    hurdlers = [
+        ProximityHurdler(100),
         ]
-    hurdle = Simulation(hurdlers=constant_hurdlers, hurdles=[Hurdle()])
+    hurdle = Simulation(hurdlers=hurdlers, hurdles=[Hurdle()])
     hurdle.run()

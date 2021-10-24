@@ -101,6 +101,9 @@ class Nbit(Genotype):
                 cls.invalid_literal_msg.format(
                     literal=new_literal, genotype=cls.__name__))
 
+    def __int__(self):
+        return int(self.literal)
+
     def mutate(self):
         self.literal.flip_random()
 
@@ -111,29 +114,88 @@ class Nbit(Genotype):
         other.literal[position] = this_segment
 
 class Individual:
-    def __init__(self, genotype: Genotype, fitness: float, history: dict):
+    uninitialized_fitness_msg = 'fitness accessed before initialized'
+
+    def __init__(self, genotype: Genotype, phenotype: any, history: list):
         self.genotype = genotype
-        self.fitness = fitness
+        self.phenotype = phenotype
+        self._fitness = None
         self.history = history
 
-    def report(self):
+    @property
+    def fitness(self):
+        if self._fitness is not None:
+            return self._fitness
+        raise ValueError(self.uninitialized_fitness_msg)
+
+    @fitness.setter
+    def fitness(self, fitness: float):
+        self._fitness = fitness
+
+    def report(self) -> dict:
         pass
 
 class Environment:
     invalid_genotypes_msg = 'Attempted to load invalid genotypes "{genotypes}"'
 
-    def __init__(self, simulation):
-        self.simulation = simulation
+    def __init__(self, fit_func: type):
+        self.fit_func = fit_func
+        self.simulation = None
+        self.individuals = []
 
-    def load_genotypes(self, genotypes: list[Genotype]):
+    def phenotype(self, genotype: Genotype, history: list):
+        """Maps genotype to phenotype
+
+        Args:
+            genotype (Genotype): genotype
+
+        Raises:
+            NotImplementedError: Must be overriden
+        """
+        raise NotImplementedError()
+
+    def load_phenotypes(self):
+        """Loads phenotypes of individuals into simulation
+
+        Raises:
+            NotImplementedError: Must be overriden
+        """
+        raise NotImplementedError()
+
+    def update_fitness(self):
+        """Updates fitness of individuals after simulation has been run
+        """
+        for individual in self.individuals:
+            individual.fitness = self.fit_func(individual)
+
+    def run(self, genotypes: list[Genotype]) -> Individual:
+        """Runs environment
+            1. Initializes individuals
+            2. Loads phenotypes into simulation
+            3. Runs simulation
+            4. Updates fitness of individuals
+
+        Args:
+            genotypes (list[Genotype]): genotypes to run in environment
+
+        Raises:
+            ValueError: invalid genotype
+
+        Returns:
+            Individual: evaluated individuals
+        """
         if not hasattr(genotypes, '__iter__'):
-            raise ValueError(self.invalid_genotypes_msg)
+            raise ValueError(self.invalid_genotypes_msg.format(genotypes))
         if not isinstance(genotypes[0], Genotype):
-            raise ValueError(self.invalid_genotypes_msg)
-        self.simulation.load(genotypes)
-
-    def run(self):
+            raise ValueError(self.invalid_genotypes_msg.format(genotypes))
+        # self.individuals = [Individual(genotype, self.phenotype(genotype)) for genotype in genotypes]
+        for genotype in genotypes:
+            history = []
+            self.individuals.append(Individual(genotype, self.phenotype(genotype, history), history))
+        self.load_phenotypes()
         self.simulation.run()
+        self.update_fitness()
+        return self.individuals
 
 class GeneticAlgorithm:
     def __init__(self):

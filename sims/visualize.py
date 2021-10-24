@@ -54,8 +54,9 @@ class Cv(Ui):
             cv.VideoWriter_fourcc(*"FMP4"),
             fps,
             frame_size)
-        for frame in frames:
-            loaded_frame = np.array(frame)
+        for frame_index in range(len(frames)):
+            print(f'processing frame {frame_index}')
+            loaded_frame = np.array(frames[frame_index])
             loaded_frame = self.convert(loaded_frame)
             loaded_frame = np.flip(loaded_frame.transpose((1, 0, 2)), axis=0)
             loaded_frame = cv.resize(loaded_frame, frame_size)
