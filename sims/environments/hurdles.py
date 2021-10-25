@@ -12,6 +12,7 @@ class Simulation:
         self.gameobjects[Hurdler.name] = hurdlers
         self.gameobjects[Hurdle.name] = hurdles
         self.frames = []
+        # TODO: decouple ui from simulation
         self.ui = vis.Cv(Settings.map_shape, Settings.video_out_path)
 
     def all_gameobjects(self):
@@ -69,12 +70,12 @@ class Simulation:
         self.frame_number += 1
         self.draw()
 
-    def run(self):
+    def run(self, to_video: bool):
         """Runs Hurdles simulation until termination condition. In loop:
             1. Checks for simulation termination
             2. runs main
         """
-        print(f'running HURDLES with {len(self.all_gameobjects())} hurdlers...')
+        print(f'running HURDLES with {len(self.gameobjects[Hurdler.name])} hurdlers...')
         self.frame_number = 0
         while True:
             if self.terminate():
@@ -83,9 +84,10 @@ class Simulation:
                     gameobject.terminate(self.get_state())
                 break
             self.main()
-        print('video processing...')
-        self.ui.to_video(self.frames, Settings.video_fps)
-        print('video processing finished')
+        if to_video:
+            print('video processing...')
+            self.ui.to_video(self.frames, Settings.video_fps)
+            print('video processing finished')
 
 class StatePacket:
     def __init__(self, frame_number: int, hurdlers: list[Hurdler], hurdles: list[Hurdle]):

@@ -34,6 +34,7 @@ class Ui:
         return np.zeros(self.shape, dtype=object)
 
 class Cv(Ui):
+    # TODO: frame save path, video save path
     PIXEL_MAP = [(179, 232, 211), (0, 0, 0), (84, 98, 107), (209, 196, 50)]
     def __init__(self, size, out_path):
         super().__init__(size)
@@ -46,6 +47,7 @@ class Cv(Ui):
             converted[frame == i] = self.PIXEL_MAP[i]
         return converted
 
+    # TODO: Make pass output file name. Pass load file name.
     def to_video(self, frames, fps, frame_size=None):
         if frame_size is None:
             frame_size = self.shape

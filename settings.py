@@ -10,7 +10,7 @@ class Settings:
 
     map_shape = np.array([640, 480])
     gravity = np.array([0, -1])
-    frames = 200
+    frames = 500
 
     hurdler_height = 30
     hurdler_width = 30
@@ -22,3 +22,5 @@ class Settings:
     hurdle_width = 50
     hurdle_drift = np.array([-10, 0])
     hurdle_spawn_x = 640
+
+    nbit_generations = 2

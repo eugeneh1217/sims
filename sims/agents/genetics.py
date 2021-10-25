@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import copy
+import time
 
 import numpy as np
 
@@ -82,13 +82,17 @@ class Genotype:
         'literal "{literal}" to "{genotype}" Genotype')
 
     def __init__(self, literal, mut_rate):
-        self._literal = literal
+        self.literal = literal
         self.mut_rate = mut_rate
 
     def __str__(self):
         return (
             f'{self.__class__.__name__} Genotype;'
             f'literal={self.literal}; mut_rate={self.mut_rate}')
+
+    #TODO: test __len__
+    def __len__(self):
+        return len(self.literal)
 
     def __getitem__(self, key):
         return self.__class__(self.literal[key], self.mut_rate)
@@ -150,113 +154,146 @@ class Nbit(Genotype):
         return offspring_a, offspring_b
 
 class Individual:
-    uninitialized_fitness_msg = 'fitness accessed before initialized'
+    """Abstract Individual returned by Environment.run
 
-    def __init__(self, genotype: Genotype, phenotype: any, history: list):
+    Raises:
+        ValueError: Raised if fitness or history is accessed before initialization
+    """
+    uninitialized_post_process = 'post-process data accessed before initialized'
+
+    def __init__(self, genotype: Genotype, phenotype: any, parents: list[Individual]=None):
         self.genotype = genotype
         self.phenotype = phenotype
+        self.parents = parents
         self._fitness = None
-        self.history = history
+        self._history = None
 
     @property
     def fitness(self):
         if self._fitness is not None:
             return self._fitness
-        raise ValueError(self.uninitialized_fitness_msg)
+        raise ValueError(self.uninitialized_post_process)
 
     @fitness.setter
     def fitness(self, fitness: float):
         self._fitness = fitness
 
-    def report(self) -> dict:
-        pass
+    @property
+    def history(self):
+        if self._history is not None:
+            return self._history
+        raise ValueError(self.uninitialized_post_process)
 
-class Environment:
-    invalid_genotypes_msg = 'Attempted to load invalid genotypes "{genotypes}"'
+    @history.setter
+    def history(self, history: float):
+        self._history = history
 
-    def __init__(self, fit_func: type):
-        self.fit_func = fit_func
-        self.simulation = None
-        self.individuals = []
+    def report(self) -> IndividualReport:
+        literal = str(self.genotype.literal)
+        parent_literals = None
+        if self.parents is not None:
+            parent_literals = [str(parent.genotype.literal) for parent in self.parents]
+        report = IndividualReport(literal, parent_literals, self.history, self.fitness)
+        return report
 
-    def phenotype(self, genotype: Genotype, history: list):
-        """Maps genotype to phenotype
-
-        Args:
-            genotype (Genotype): genotype
-
-        Raises:
-            NotImplementedError: Must be overriden
-        """
+class Report:
+    @classmethod
+    def from_json(cls, json_path):
         raise NotImplementedError()
 
-    def load_phenotypes(self):
-        """Loads phenotypes of individuals into simulation
-
-        Raises:
-            NotImplementedError: Must be overriden
-        """
+    def __str__(self):
         raise NotImplementedError()
 
-    def update_fitness(self):
-        """Updates fitness of individuals after simulation has been run
-        """
-        for individual in self.individuals:
-            individual.fitness = self.fit_func(individual)
+    def to_json(self, json_path):
+        raise NotImplementedError()
 
-    def run(self, genotypes: list[Genotype]) -> Individual:
-        """Runs environment
-            1. Initializes individuals
-            2. Loads phenotypes into simulation
-            3. Runs simulation
-            4. Updates fitness of individuals
+class IndividualReport(Report):
+    def __init__(
+        self,
+        genotype_literal: str,
+        parent_genotype_literals: list[str],
+        history: list,
+        fitness: float):
+        self.literal = genotype_literal
+        self.parent_literals = parent_genotype_literals
+        self.history = history
+        self.fitness = fitness
 
-        Args:
-            genotypes (list[Genotype]): genotypes to run in environment
+class GenerationReport(Report):
+    def __init__(self, individuals: list[Individual]):
+        self.individuals = individuals
+        self.highest_fitness = None
+        self.average_fitness = None
 
-        Raises:
-            ValueError: invalid genotype
-
-        Returns:
-            Individual: evaluated individuals
-        """
-        if not hasattr(genotypes, '__iter__'):
-            raise ValueError(self.invalid_genotypes_msg.format(genotypes))
-        if not isinstance(genotypes[0], Genotype):
-            raise ValueError(self.invalid_genotypes_msg.format(genotypes))
-        # self.individuals = [Individual(genotype, self.phenotype(genotype)) for genotype in genotypes]
-        for genotype in genotypes:
-            history = []
-            self.individuals.append(Individual(genotype, self.phenotype(genotype, history), history))
-        self.load_phenotypes()
-        self.simulation.run()
-        self.update_fitness()
-        return self.individuals
+class AlgorithmReport(Report):
+    def __init__(
+        self,
+        generation_reports: list[GenerationReport],
+        runtime: float,
+        memory_consumption: float=None):
+        self.generation_reports = generation_reports
+        self.runtime = runtime
+        self.memory_consumption = memory_consumption
 
 class GeneticAlgorithm:
-    def __init__(self):
-        pass
+    def __init__(self, generation_size: int):
+        self.generations = []
+        self.generation_size = generation_size
+        self._next_generation = None
 
-    def select(self):
-        pass
+    @staticmethod
+    def phenotype(genotype: Genotype):
+        raise NotImplementedError()
 
-    def breed(self):
-        pass
-
-    def mutate(self):
-        pass
-
-    def run_generation(self):
-        pass
+    @staticmethod
+    def post_process_generation(generation: list[Individual]):
+        raise NotImplementedError()
 
     def check_termination(self):
-        pass
+        raise NotImplementedError()
 
-    def generation_report(self):
-        pass
+    def select(self, generation: list[Individual]) -> list[list[Individual]]:
+        raise NotImplementedError()
 
-    def algorithm_report(self):
-        pass
+    def breed(self, parents: list[Individual]) -> list[Individual]:
+        raise NotImplementedError()
+
+    def mutate(self, individual: Individual) -> Individual:
+        raise NotImplementedError()
+
+    def seed_generation(self) -> list[Individual]:
+        raise NotImplementedError()
+
+    def run_generation(self, generation: list[Individual]):
+        raise NotImplementedError()
+
+    def generation_report(self, generation: list[Individual]) -> GenerationReport:
+        reports = []
+        for individual in generation:
+            reports.append(individual.report())
+        return reports
+
+    def generation_reports(self) -> list[GenerationReport]:
+        reports = []
+        for generation in self.generations:
+            reports.append(self.generation_report(generation))
+        return reports
+
+    def run(self):
+        start = time.perf_counter()
+        self._next_generation = self.seed_generation()
+        while not self.check_termination():
+            self.run_generation(self._next_generation)
+            self.post_process_generation(self._next_generation)
+            self.generations.append(self._next_generation)
+            parent_sets = self.select(self._next_generation)
+            parent_sets += self.select(self._next_generation)
+            next_generation = [child for parents in parent_sets for child in self.breed(parents)]
+            self._next_generation = [self.mutate(individual) for individual in next_generation]
+        end = time.perf_counter()
+        elapsed = end - start
+        generation_reports = self.generation_reports()
+        return AlgorithmReport(generation_reports, elapsed)
 
 if __name__ == '__main__':
     a = Binary(6)
