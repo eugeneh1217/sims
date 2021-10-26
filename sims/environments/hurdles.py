@@ -44,7 +44,7 @@ class Simulation:
                 gameobject.terminate(self.get_state())
         if gameobject.terminated:
             self.remove_gameobject(gameobject)
-            print(f"terminated {gameobject.__class__.name} @ frame {self.frame_number}")
+            print(f"terminated {gameobject.object_name} @ frame {self.frame_number}")
             return
 
     def run_hurdles(self):
@@ -100,11 +100,12 @@ class GameObject:
     name = None
     terminated = False
 
-    def __init__(self):
+    def __init__(self, object_name: str=None):
         self.termination_state = None
         self.displacement = 0
         self.velocity = 0
         self.acceleration = 0
+        self.object_name = object_name or 'GameObject'
 
     @classmethod
     @property
@@ -118,6 +119,9 @@ class GameObject:
 class Square(GameObject):
     width = 0
     height = 0
+
+    def __init__(self, object_name: str=None):
+        super().__init__(object_name=object_name or 'SquareGameObject')
 
     def top(self):
         return self.displacement[1] + self.height - 1
@@ -146,8 +150,8 @@ class Hurdler(Square):
     spawn_x = Settings.hurdler_x_spawn
     width = Settings.hurdler_width
     height = Settings.hurdler_height
-    def __init__(self, history: list=None):
-        super().__init__()
+    def __init__(self, history: list=None, object_name: str=None):
+        super().__init__(object_name=object_name or 'Hurdler')
         self.history = history or []
         self.displacement = np.array([self.spawn_x, 0], np.float64)
 
@@ -156,7 +160,7 @@ class Hurdler(Square):
 
     def jump(self):
         if self.isgrounded():
-            print('jumped')
+            print(f'{self.object_name} jumped')
             self.velocity += np.array([0, Settings.hurdler_jump_speed], dtype=np.float64)
 
     def act(self, state: StatePacket):
@@ -185,8 +189,8 @@ class Hurdler(Square):
         return frame_copy
 
 class ConstantHurdler(Hurdler):
-    def __init__(self, period: int, history: list=None):
-        super().__init__(history=history)
+    def __init__(self, period: int, history: list=None, object_name: str=None):
+        super().__init__(history=history, object_name=object_name or 'ConstantHurdler')
         self.period = period
 
     def act(self, state: StatePacket):
@@ -198,8 +202,8 @@ class ConstantHurdler(Hurdler):
         self.history.append(action)
 
 class ProximityHurdler(Hurdler):
-    def __init__(self, threshold: int, history: list=None):
-        super().__init__(history=history)
+    def __init__(self, threshold: int, history: list=None, object_name: str=None):
+        super().__init__(history=history, object_name=object_name or 'ProximityHurdler')
         self.threshold = threshold
 
     def proximity(self, hurdle: Hurdle):

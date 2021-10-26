@@ -23,4 +23,4 @@ class Settings:
     hurdle_drift = np.array([-10, 0])
     hurdle_spawn_x = 640
 
-    nbit_generations = 2
+    nbit_generations = 10

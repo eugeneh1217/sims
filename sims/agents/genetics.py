@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import json
 import time
 
 import numpy as np
@@ -198,14 +200,23 @@ class Individual:
 
 class Report:
     @classmethod
+    def from_dict(cls, as_dict: dict) -> Report:
+        raise NotImplementedError()
+
+    @classmethod
     def from_json(cls, json_path):
         raise NotImplementedError()
 
     def __str__(self):
         raise NotImplementedError()
 
-    def to_json(self, json_path):
+    def to_dict(self) -> dict:
         raise NotImplementedError()
+
+    def to_json(self, json_path):
+        as_dict = self.to_dict()
+        with open(json_path, 'w') as jfile:
+            json.dump(as_dict, jfile, indent=4)
 
 class IndividualReport(Report):
     def __init__(
@@ -219,21 +230,52 @@ class IndividualReport(Report):
         self.history = history
         self.fitness = fitness
 
+    def to_dict(self) -> dict:
+        return {
+            'type': 'individual',
+            'literal': self.literal,
+            'parent_literals': self.parent_literals,
+            'history': self.history,
+            'fitness': self.fitness
+        }
+
 class GenerationReport(Report):
-    def __init__(self, individuals: list[Individual]):
+    def __init__(
+        self,
+        individuals: list[IndividualReport],
+        highest_fitness: float,
+        average_fitness: float):
         self.individuals = individuals
-        self.highest_fitness = None
-        self.average_fitness = None
+        self.highest_fitness = highest_fitness
+        self.average_fitness = average_fitness
+
+    def to_dict(self) -> dict:
+        indiv_reports = [individual.to_dict() for individual in self.individuals]
+        return {
+            'type': 'generation',
+            'individuals': indiv_reports,
+            'highest_fitness': self.highest_fitness,
+            'average_fitness': self.average_fitness
+        }
 
 class AlgorithmReport(Report):
     def __init__(
         self,
-        generation_reports: list[GenerationReport],
+        generations: list[GenerationReport],
         runtime: float,
         memory_consumption: float=None):
-        self.generation_reports = generation_reports
+        self.generations = generations
         self.runtime = runtime
         self.memory_consumption = memory_consumption
+
+    def to_dict(self) -> dict:
+        gen_reports = [generation.to_dict() for generation in self.generations]
+        return {
+            'type': 'algorithms',
+            'generations': gen_reports,
+            'runtime': self.runtime,
+            'memory_consumption': self.memory_consumption
+        }
 
 class GeneticAlgorithm:
     def __init__(self, generation_size: int):
@@ -268,16 +310,28 @@ class GeneticAlgorithm:
         raise NotImplementedError()
 
     def generation_report(self, generation: list[Individual]) -> GenerationReport:
-        reports = []
+        indiv_reports = []
         for individual in generation:
-            reports.append(individual.report())
-        return reports
+            indiv_reports.append(individual.report())
+        indiv_reports_sorted = copy.deepcopy(indiv_reports)
+        indiv_reports_sorted.sort(key=(lambda x: x.fitness))
+        average_fitness = np.sum([indiv.fitness for indiv in indiv_reports]) / len(indiv_reports)
+        gen_report = GenerationReport(
+            indiv_reports,
+            indiv_reports_sorted[-1].fitness,
+            average_fitness)
+        return gen_report
 
     def generation_reports(self) -> list[GenerationReport]:
         reports = []
         for generation in self.generations:
             reports.append(self.generation_report(generation))
         return reports
+
+    def algorithm_report(self, elapsed, memory=None) -> AlgorithmReport:
+        gen_reports = self.generation_reports()
+        algo_report = AlgorithmReport(gen_reports, elapsed, memory_consumption=memory)
+        return algo_report
 
     def run(self):
         start = time.perf_counter()
@@ -292,8 +346,8 @@ class GeneticAlgorithm:
             self._next_generation = [self.mutate(individual) for individual in next_generation]
         end = time.perf_counter()
         elapsed = end - start
-        generation_reports = self.generation_reports()
-        return AlgorithmReport(generation_reports, elapsed)
+        algo_report = self.algorithm_report(elapsed)
+        return algo_report
 
 if __name__ == '__main__':
     a = Binary(6)

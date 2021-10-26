@@ -1,4 +1,5 @@
 import copy
+import os
 
 import numpy as np
 
@@ -11,7 +12,7 @@ class ProximityHurdlerTrainer(genetics.GeneticAlgorithm):
 
     @staticmethod
     def phenotype(genotype: genetics.Genotype) -> hurdles.ProximityHurdler:
-        return hurdles.ProximityHurdler(int(genotype))
+        return hurdles.ProximityHurdler(int(genotype), object_name=f'ProxHurdler{int(genotype)}p')
 
     @staticmethod
     def pop_random(series: list):
@@ -79,6 +80,10 @@ class ProximityHurdlerTrainer(genetics.GeneticAlgorithm):
         sim.run(self.to_video)
 
 if __name__ == '__main__':
-    trainer = ProximityHurdlerTrainer(20, 10000, to_video=False)
-    algo_rep = trainer.run()
-    # algo_rep.to_json()
+    hurdler_report_dir = os.path.join('sims', 'data', 'reports')
+    if not os.path.exists(hurdler_report_dir):
+        os.makedirs(hurdler_report_dir)
+    for i in range(100):
+        trainer = ProximityHurdlerTrainer(20, 10000, to_video=False)
+        algo_report = trainer.run()
+        algo_report.to_json(os.path.join(hurdler_report_dir, f'proximity_hurdler_report_{i}.json'))
