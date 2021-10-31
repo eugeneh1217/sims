@@ -31,13 +31,3 @@ Agents will be able to:
         * Gaussian: Random gaussian noise is added to existing numerical node
         * Grow: Introduce a random function node (and required children value nodes)
 
-## TODO:
-### Major
-* Create grammar structure
-* Implement evolution operations
-* Implement Environment
-* Implement Agents
-
-### Minor
-* Implement binary representations (probably starting from node class)
-
