@@ -83,7 +83,7 @@ if __name__ == '__main__':
     hurdler_report_dir = os.path.join('sims', 'data', 'reports')
     if not os.path.exists(hurdler_report_dir):
         os.makedirs(hurdler_report_dir)
-    for i in range(100):
+    for i in range(Settings.algo_runs):
         trainer = ProximityHurdlerTrainer(20, 10000, to_video=False)
         algo_report = trainer.run()
         algo_report.to_json(os.path.join(hurdler_report_dir, f'proximity_hurdler_report_{i}.json'))

@@ -195,7 +195,7 @@ class Individual:
         parent_literals = None
         if self.parents is not None:
             parent_literals = [str(parent.genotype.literal) for parent in self.parents]
-        report = IndividualReport(literal, parent_literals, self.history, self.fitness)
+        report = IndividualReport(literal, parent_literals, self.fitness)
         return report
 
 class Report:
@@ -223,11 +223,9 @@ class IndividualReport(Report):
         self,
         genotype_literal: str,
         parent_genotype_literals: list[str],
-        history: list,
         fitness: float):
         self.literal = genotype_literal
         self.parent_literals = parent_genotype_literals
-        self.history = history
         self.fitness = fitness
 
     def to_dict(self) -> dict:
@@ -235,10 +233,10 @@ class IndividualReport(Report):
             'type': 'individual',
             'literal': self.literal,
             'parent_literals': self.parent_literals,
-            'history': self.history,
             'fitness': self.fitness
         }
 
+# TODO: Add generation number to generation report
 class GenerationReport(Report):
     def __init__(
         self,
