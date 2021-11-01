@@ -199,11 +199,156 @@ class TestNbit(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_crossover(self):
-        print(self.nbit_a.literal, self.nbit_b.literal)
         offspring = self.nbit_a.crossover(self.nbit_b, 2)
         actual = str(offspring[0].literal), str(offspring[1].literal)
         expected = ('0b1000', '0b11011101')
         self.assertEqual(actual, expected)
+
+class TestNodeString(unittest.TestCase):
+    def test_even_open_close(self):
+        valid_mock_str = '1(1,2(3,4)),()'
+        valid_actual = genetics.NodeString.even_open_close(valid_mock_str)
+        valid_expected = '(1,2(3,4))'
+        self.assertEqual(valid_actual, valid_expected)
+        uneven_mock_str = '1(1,2(3,4),()'
+        with self.assertRaises(ValueError):
+            genetics.NodeString.even_open_close(uneven_mock_str)
+        no_open_mock_str = '1'
+        with self.assertRaises(ValueError):
+            genetics.NodeString.even_open_close(no_open_mock_str)
+
+    def test_parse_first_int(self):
+        int_first_mock_str = '12312(1,2,3)'
+        int_first_actual = genetics.NodeString.parse_first_int(int_first_mock_str)
+        int_first_expected = (12312, '(1,2,3)')
+        self.assertEqual(int_first_actual, int_first_expected)
+        prematter_mock_str = 'ab(12312(1,2,3)'
+        prematter_actual = genetics.NodeString.parse_first_int(prematter_mock_str)
+        prematter_expected = (12312, '(1,2,3)')
+        self.assertEqual(prematter_actual, prematter_expected)
+
+    def test_parse_child(self):
+        grand_children_mock_child = '123(2,3(3,4),1),43(1,2)'
+        grand_children_actual = genetics.NodeString.parse_child(grand_children_mock_child)
+        grand_children_expected = '123(2,3(3,4),1)'
+        self.assertEqual(grand_children_actual, grand_children_expected)
+        child_mock_child = '23,3(2,3)'
+        child_actual = genetics.NodeString.parse_child(child_mock_child)
+        child_expected = '23'
+        self.assertEqual(child_actual, child_expected)
+        no_grandchildren_mock_child = '1,23'
+        no_grandchildren_actual = genetics.NodeString.parse_child(no_grandchildren_mock_child)
+        no_grandchildren_expected = '1'
+        self.assertEqual(no_grandchildren_actual, no_grandchildren_expected)
+        single_mock_child = '23'
+        single_actual = genetics.NodeString.parse_child(single_mock_child)
+        single_expected = '23'
+        self.assertEqual(single_actual, single_expected)
+
+    def test_parse_children(self):
+        nested_mock_children_str = '123(2,3(3,4),1),43(1,2),23,4(3,2)'
+        nested_actual = genetics.NodeString.parse_children(nested_mock_children_str)
+        nested_expected = ['123(2,3(3,4),1)', '43(1,2)', '23', '4(3,2)']
+        self.assertListEqual(nested_actual, nested_expected)
+        unnested_mock_children_str = '1,23'
+        unnested_actual = genetics.NodeString.parse_children(unnested_mock_children_str)
+        unnested_expected = ['1', '23']
+        self.assertListEqual(unnested_actual, unnested_expected)
+        single_mock_children_str = '1'
+        single_actual = genetics.NodeString.parse_children(single_mock_children_str)
+        single_expected = ['1']
+        self.assertListEqual(single_actual, single_expected)
+        mock_children_str = '4(5),3(6,7),7'
+        actual = genetics.NodeString.parse_children(mock_children_str)
+        expected = ['4(5)', '3(6,7)', '7']
+        self.assertListEqual(actual, expected)
+
+class TestNodeFromString(unittest.TestCase):
+    def setUp(self):
+        self.mock_tree = genetics.Node(
+            children=[
+                genetics.Node(children=[
+                    genetics.Node(nodetype=5)
+                ], nodetype=4),
+                genetics.Node(children=[
+                    genetics.Node(nodetype=6),
+                    genetics.Node(nodetype=7)
+                ], nodetype=3),
+                genetics.Node(nodetype=7)
+            ], nodetype=1
+        )
+        self.mock_tree_string = 'Node: 1(4(5),3(6,7),7)'
+
+    def test_str_(self):
+        actual = str(self.mock_tree)
+        expected = self.mock_tree_string
+        self.assertEqual(actual, expected)
+
+    def test_from_string(self):
+        actual = genetics.Node.from_string(self.mock_tree_string)
+        expected = self.mock_tree
+        self.assertEqual(str(actual), str(expected))
+
+class TestNode(unittest.TestCase):
+    def test_validate_children(self):
+        non_iterable_children = genetics.Node(nodetype=1)
+        with self.assertRaises(ValueError):
+            genetics.Node(children=non_iterable_children)
+        non_node_children = [genetics.Node(nodetype=1), 'a']
+        with self.assertRaises(ValueError):
+            genetics.Node(children=non_node_children)
+
+    def test_depth(self):
+        deepest_not_first = genetics.Node.from_string('1(2,3(4,5(2)),4(2(3),4))')
+        deepest_not_first_actual = deepest_not_first.depth()
+        deepest_not_first_expected = 4
+        self.assertEqual(deepest_not_first_actual, deepest_not_first_expected)
+
+class TestBinaryNodeFromString(unittest.TestCase):
+    def setUp(self):
+        self.mock_binary_tree = genetics.BinaryNode(
+            [
+                genetics.BinaryNode(
+                    [
+                        genetics.BinaryNode(nodetype=1)
+                    ], nodetype=4),
+                genetics.BinaryNode(
+                    [
+                        genetics.BinaryNode(
+                            [
+                                genetics.BinaryNode(nodetype=3),
+                                genetics.BinaryNode(nodetype=2)
+                            ],nodetype=2)
+                    ], nodetype=4)
+            ], nodetype=1
+        )
+        self.mock_binary_tree_str = 'BinaryNode: 1(4(1),4(2(3,2)))'
+
+    def test_from_string(self):
+        actual = genetics.BinaryNode.from_string(self.mock_binary_tree_str)
+        expected = self.mock_binary_tree_str
+        self.assertEqual(str(actual), expected)
+
+    def test_str(self):
+        actual = str(self.mock_binary_tree)
+        expected = self.mock_binary_tree_str
+        self.assertEqual(actual, expected)
+
+class TestBinaryNode(unittest.TestCase):
+    def test_validate_children(self):
+        non_iterable_children = genetics.Node(nodetype=1)
+        with self.assertRaises(ValueError):
+            genetics.BinaryNode(children=non_iterable_children)
+        non_node_children = [genetics.Node(nodetype=1), 'a']
+        with self.assertRaises(ValueError):
+            genetics.BinaryNode(children=non_node_children)
+        too_long_children = [
+            genetics.Node(nodetype=1),
+            genetics.Node(nodetype=2),
+            genetics.Node(nodetype=3)
+        ]
+        with self.assertRaises(ValueError):
+            genetics.BinaryNode(children=too_long_children)
 
 if __name__ == '__main__':
     unittest.main()
