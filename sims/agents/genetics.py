@@ -224,9 +224,7 @@ class Node:
         self.nodetype = nodetype
 
     def __str__(self):
-        as_str = ''
-        if self.parent is None:
-            as_str = self.STRING_IDENTIFIER
+        as_str = self.STRING_IDENTIFIER if self.parent is None else ''
         if len(self.children) > 0:
             children_str = ','.join(str(child) for child in self.children)
             as_str += f'{self.nodetype}({children_str})'
@@ -234,8 +232,11 @@ class Node:
             as_str += str(self.nodetype)
         return as_str
 
+    def __eq__(self, other: Node):
+        return str(self) == str(other)
+
     @property
-    def children(self):
+    def children(self) -> list[Node]:
         return self._children
 
     @children.setter
@@ -247,6 +248,43 @@ class Node:
         if len(self.children) > 0:
             return max([child.depth() for child in self.children]) + 1
         return 1
+
+    def pop_child(self, pop_index: int) -> Node:
+        """Pops child at pop_index
+
+        Args:
+            pop_index (int): index of child to pop
+
+        Returns:
+            Node: child popped. Note: child loses parent reference when popped
+        """
+        popped = self.children.pop(pop_index)
+        popped.parent = None
+        return popped
+
+    def insert_child(self, index: int, child: Node):
+        """Insert child in to node children
+
+        Args:
+            index (int): index to insert child at
+            child (Node): child to insert. current node becomes child's parent
+        """
+        child.parent = self
+        self.children.insert(index, child)
+
+    def descendents(self) -> list[Node]:
+        """Get references to current node and all its descendents
+
+        Returns:
+            list[Node]: list of references to current node and all of its descendents.
+                current node first
+        """
+        if len(self.children) > 0:
+            return [self] + [
+                descendent
+                for child in self.children
+                for descendent in child.descendents()]
+        return [self]
 
 class BinaryNode(Node):
     STRING_IDENTIFIER = 'BinaryNode: '

@@ -304,6 +304,31 @@ class TestNode(unittest.TestCase):
         deepest_not_first_expected = 4
         self.assertEqual(deepest_not_first_actual, deepest_not_first_expected)
 
+    def test_pop_child(self):
+        pop_index = 1
+        mock_node = genetics.Node.from_string('1(2,3(4),2(1,2))')
+        returned_actual = mock_node.pop_child(pop_index)
+        returned_expected = genetics.Node.from_string('3(4)')
+        self.assertEqual(str(returned_actual), str(returned_expected))
+        expected_mock_node_after = genetics.Node.from_string('1(2,2(1,2))')
+        self.assertEqual(mock_node, expected_mock_node_after)
+
+    def test_insert(self):
+        insert_index = 1
+        child = genetics.Node.from_string('3(4)')
+        mock_node = genetics.Node.from_string('1(2,2(1,2))')
+        mock_node.insert_child(insert_index, child)
+        expected_node_after = genetics.Node.from_string('1(2,3(4),2(1,2))')
+        self.assertEqual(mock_node, expected_node_after)
+        expected_child_parent = mock_node
+        self.assertEqual(child.parent, expected_child_parent)        
+
+    def test_descendents(self):
+        mock_node = genetics.Node.from_string('1(2(3,4),5(6(7),8))')
+        actual = [descendent.nodetype for descendent in mock_node.descendents()]
+        expected = [1, 2, 3, 4, 5, 6, 7, 8]
+        self.assertListEqual(actual, expected)
+
 class TestBinaryNodeFromString(unittest.TestCase):
     def setUp(self):
         self.mock_binary_tree = genetics.BinaryNode(
