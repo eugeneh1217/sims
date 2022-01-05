@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 
 import numpy as np
 
@@ -78,6 +79,22 @@ class ProximityHurdlerTrainer(genetics.GeneticAlgorithm):
         hurdlers = [individual.phenotype for individual in generation]
         sim = hurdles.Simulation(hurdlers=hurdlers, hurdles=[hurdles.Hurdle()])
         sim.run(self.to_video)
+
+    def run(self):
+        start = time.perf_counter()
+        self._next_generation = self.seed_generation()
+        while not self.check_termination():
+            self.run_generation(self._next_generation)
+            self.post_process_generation(self._next_generation)
+            self.generations.append(self._next_generation)
+            parent_sets = self.select(self._next_generation)
+            parent_sets += self.select(self._next_generation)
+            next_generation = [child for parents in parent_sets for child in self.breed(parents)]
+            self._next_generation = [self.mutate(individual) for individual in next_generation]
+        end = time.perf_counter()
+        elapsed = end - start
+        algo_report = self.algorithm_report(elapsed)
+        return algo_report
 
 if __name__ == '__main__':
     hurdler_report_dir = os.path.join('sims', 'data', 'reports')

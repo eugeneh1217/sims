@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import time
+from unittest.result import TestResult
 
 import numpy as np
+
+def intable(string: str) -> bool:
+    try:
+        int(string)
+    except ValueError:
+        return False
+    return True
 
 class Binary:
     """Wrapper class for python built-in binary strings with least significant byte at right
@@ -78,6 +87,218 @@ class Binary:
     def flip_random(self):
         self.flip(int(np.random.rand() * self.literal.size))
 
+class NodeString:
+    @classmethod
+    def validate_literal(cls, new: str):
+        if not isinstance(new, str):
+            raise ValueError(
+                f'NodeString initialized with invalid literal "{new}" of type "{type(new)}"'
+            )
+
+    @classmethod
+    def even_open_close(cls, string: str) -> str:
+        """Finds first substring of string that has same number of open and close delimiters
+
+        Args:
+            string (str): string to parse
+
+        Raises:
+            ValueError: invalid string passed to even_open_close
+
+        Returns:
+            str: substring
+        """
+        if Node.OPEN_DELIM not in string:
+            raise ValueError(
+                f'Open delimiter "{Node.OPEN_DELIM}" must be in '
+                f'string passed to even_open_close "{string}"')
+        open_index = string.index(Node.OPEN_DELIM)
+        delim_diff = 1
+        for i in range(open_index + 1, len(string)):
+            if string[i] == Node.OPEN_DELIM:
+                delim_diff += 1
+            if string[i] == Node.CLOSE_DELIM:
+                delim_diff -= 1
+            if delim_diff == 0:
+                return string[open_index:i + 1]
+        raise ValueError(f'uneven delimiters in string "{string}" passed to even_open_close')
+
+    @classmethod
+    def parse_first_int(cls, string: str) -> tuple[int, str]:
+        """Parse first int from string
+
+        Args:
+            string (str): string to parse
+
+        Returns:
+            tuple[int, str]: value of parsed int and string after int
+        """
+        match = re.search('[0-9]+', string)
+        return int(match.group()), string[match.end():]
+
+    @classmethod
+    def parse_child(cls, child_str: str) -> str:
+        """Parses first child from child_str
+
+        Args:
+            child_str (str): child string.
+
+        Returns:
+            str: first child string
+        """
+        nodetype, child_str = cls.parse_first_int(child_str)
+        if not child_str.startswith(Node.SEP_DELIM):
+            if len(child_str) == 0:
+                return str(nodetype)
+            if child_str.startswith(Node.CLOSE_DELIM):
+                return str(nodetype)
+            child_children = cls.even_open_close(child_str)
+            return f'{nodetype}{child_children}'
+        return str(nodetype)
+
+    @classmethod
+    def parse_children(cls, children_string) -> list[str]:
+        """Parses children from children string
+
+        Returns:
+            list[str]: children strings
+        """
+        children_strs = []
+        if len(children_string) == 0:
+            return []
+        while True:
+            child_str = cls.parse_child(children_string)
+            children_strs.append(child_str)
+            children_string = children_string[len(child_str) + len(Node.SEP_DELIM):]
+            if Node.OPEN_DELIM not in children_string:
+                if Node.CLOSE_DELIM in children_string or len(children_string) == 0:
+                    break
+        return children_strs
+
+class Node:
+    invalid_children_msg = 'Attempted to assign invalid children "{children}" of type {children_type}'
+    OPEN_DELIM = '('
+    CLOSE_DELIM = ')'
+    SEP_DELIM = ','
+    STRING_IDENTIFIER = 'Node: '
+    invalid_str_msg = 'Attempted to generate Node from invalid string {string}'
+
+    @classmethod
+    def validate_children(cls, new: list[Node]):
+        if not hasattr(new, '__len__'):
+            raise ValueError(f'Attempted to assign non iterable children "{new}" of type {type(new)}')
+        if not all([isinstance(node, Node) for node in new]):
+            raise ValueError(
+                f'Attempted to assign non-node children '
+                f'"{new}" of type [{[type(node) for node in new]}]')
+
+    @classmethod
+    def build_node_from_string(cls, string: str):
+        nodetype, children_str = NodeString.parse_first_int(string)
+        children_str = children_str[len(cls.OPEN_DELIM):-len(cls.CLOSE_DELIM)]
+        children_strings = NodeString.parse_children(children_str)
+        children = [cls.build_node_from_string(child) for child in children_strings]
+        return cls(
+            children=children,
+            nodetype=nodetype
+        )
+
+    @classmethod
+    def from_string(cls, string: str):
+        try:
+            if string.startswith(cls.STRING_IDENTIFIER):
+                string = string[len(cls.STRING_IDENTIFIER):]
+            return cls.build_node_from_string(string)
+        except Exception as err:
+            print(f"ERROR: {cls.invalid_str_msg.format(string=string)}")
+            raise err
+
+    def __init__(self, children: list[Node]=None, parent: Node=None, nodetype: int=0):
+        if children is None:
+            children = []
+        self._children = None
+        self.children = children
+        for child in self.children:
+            child.parent = self
+        self.parent = parent
+        self.nodetype = nodetype
+
+    def __str__(self):
+        as_str = self.STRING_IDENTIFIER if self.parent is None else ''
+        if len(self.children) > 0:
+            children_str = ','.join(str(child) for child in self.children)
+            as_str += f'{self.nodetype}({children_str})'
+        else:
+            as_str += str(self.nodetype)
+        return as_str
+
+    def __eq__(self, other: Node):
+        return str(self) == str(other)
+
+    @property
+    def children(self) -> list[Node]:
+        return self._children
+
+    @children.setter
+    def children(self, new: list[Node] | Node | None):
+        self.validate_children(new)
+        self._children = new
+
+    def depth(self):
+        if len(self.children) > 0:
+            return max([child.depth() for child in self.children]) + 1
+        return 1
+
+    def pop_child(self, pop_index: int) -> Node:
+        """Pops child at pop_index
+
+        Args:
+            pop_index (int): index of child to pop
+
+        Returns:
+            Node: child popped. Note: child loses parent reference when popped
+        """
+        popped = self.children.pop(pop_index)
+        popped.parent = None
+        return popped
+
+    def insert_child(self, index: int, child: Node):
+        """Insert child in to node children
+
+        Args:
+            index (int): index to insert child at
+            child (Node): child to insert. current node becomes child's parent
+        """
+        child.parent = self
+        self.children.insert(index, child)
+
+    def descendents(self) -> list[Node]:
+        """Get references to current node and all its descendents
+
+        Returns:
+            list[Node]: list of references to current node and all of its descendents.
+                current node first
+        """
+        if len(self.children) > 0:
+            return [self] + [
+                descendent
+                for child in self.children
+                for descendent in child.descendents()]
+        return [self]
+
+class BinaryNode(Node):
+    STRING_IDENTIFIER = 'BinaryNode: '
+    @classmethod
+    def validate_children(cls, new: list[Node]):
+        super().validate_children(new)
+        if len(new) > 2:
+            raise ValueError(f'Attempted to assign {len(new)} children to BinaryTree')
+
+    def __init__(
+        self, children: list[Node]=None, parent: Node=None,
+        nodetype: int=0):
+        super().__init__(children=children, parent=parent, nodetype=nodetype)
+
 class Genotype:
     invalid_literal_msg = (
         'attempted to assign invalid '
@@ -91,13 +312,6 @@ class Genotype:
         return (
             f'{self.__class__.__name__} Genotype;'
             f'literal={self.literal}; mut_rate={self.mut_rate}')
-
-    #TODO: test __len__
-    def __len__(self):
-        return len(self.literal)
-
-    def __getitem__(self, key):
-        return self.__class__(self.literal[key], self.mut_rate)
 
     @property
     def literal(self):
@@ -129,6 +343,12 @@ class Nbit(Genotype):
 
     def __int__(self):
         return int(self.literal)
+
+    def __len__(self):
+        return len(self.literal)
+
+    def __getitem__(self, key):
+        return self.__class__(self.literal[key], self.mut_rate)
 
     def mutate(self):
         self.literal.flip_random()
@@ -285,20 +505,10 @@ class GeneticAlgorithm:
     def phenotype(genotype: Genotype):
         raise NotImplementedError()
 
-    @staticmethod
-    def post_process_generation(generation: list[Individual]):
-        raise NotImplementedError()
-
     def check_termination(self):
         raise NotImplementedError()
 
-    def select(self, generation: list[Individual]) -> list[list[Individual]]:
-        raise NotImplementedError()
-
-    def breed(self, parents: list[Individual]) -> list[Individual]:
-        raise NotImplementedError()
-
-    def mutate(self, individual: Individual) -> Individual:
+    def next_generation(self, generation: list[Individual]) -> list[Individual]:
         raise NotImplementedError()
 
     def seed_generation(self) -> list[Individual]:
@@ -336,12 +546,8 @@ class GeneticAlgorithm:
         self._next_generation = self.seed_generation()
         while not self.check_termination():
             self.run_generation(self._next_generation)
-            self.post_process_generation(self._next_generation)
             self.generations.append(self._next_generation)
-            parent_sets = self.select(self._next_generation)
-            parent_sets += self.select(self._next_generation)
-            next_generation = [child for parents in parent_sets for child in self.breed(parents)]
-            self._next_generation = [self.mutate(individual) for individual in next_generation]
+            self._next_generation = self.next_generation(self.generations[-1])
         end = time.perf_counter()
         elapsed = end - start
         algo_report = self.algorithm_report(elapsed)
